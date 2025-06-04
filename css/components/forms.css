@@ -1,0 +1,383 @@
+/* ===================================
+   FORM COMPONENTS
+   =================================== */
+
+/* ===== BASE FORM STYLES ===== */
+form {
+    margin-bottom: var(--space-lg);
+  }
+  
+  fieldset {
+    border: var(--border-width-thin) solid var(--color-border-primary);
+    border-radius: var(--border-radius-base);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+  }
+  
+  legend {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    padding: 0 var(--space-sm);
+  }
+  
+  /* ===== FORM GROUPS ===== */
+  .form-group {
+    margin-bottom: var(--space-lg);
+  }
+  
+  .form-group label {
+    display: block;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-sm);
+    font-size: var(--font-base);
+  }
+  
+  .form-group label.required::after {
+    content: '*';
+    color: var(--color-error);
+    margin-left: var(--space-xs);
+  }
+  
+  /* ===== SEARCH FORMS ===== */
+  form[role="search"] {
+    display: flex;
+    align-items: center;
+    max-width: 400px;
+    margin-bottom: var(--space-lg);
+  }
+  
+  .search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+  
+  /* ===== INPUT FIELDS ===== */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  input[type="number"],
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="month"],
+  input[type="week"],
+  input[type="time"],
+  textarea,
+  select {
+    width: 100%;
+    padding: var(--space-sm) var(--space-base);
+    border: var(--border-width-medium) solid var(--color-border-primary);
+    border-radius: var(--border-radius-base);
+    font-size: var(--font-base);
+    line-height: var(--line-height-base);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-primary);
+    transition: all var(--transition-base);
+    box-sizing: border-box;
+  }
+  
+  /* Input focus states */
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 3px var(--color-primary-bg);
+  }
+  
+  /* Input placeholder */
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-text-muted);
+    opacity: 1;
+  }
+  
+  /* ===== SEARCH INPUT SPECIFIC ===== */
+  #search,
+  input[type="search"] {
+    flex: 1;
+    padding: 9px var(--space-base);
+    border: var(--border-width-medium) solid var(--color-border-primary);
+    border-radius: 25px 0 0 25px; /* Rounded left, square right */
+    font-size: var(--font-base);
+    outline: none;
+    transition: border-color var(--transition-slow);
+  }
+  
+  #search:focus,
+  input[type="search"]:focus {
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 3px var(--color-primary-bg);
+  }
+  
+  #search::placeholder,
+  input[type="search"]::placeholder {
+    color: var(--color-text-muted);
+  }
+  
+  /* ===== SEARCH BUTTON ===== */
+  #search-button,
+  .search-button {
+    padding: 12px var(--space-base);
+    background-color: var(--color-primary);
+    color: var(--color-white);
+    border: var(--border-width-medium) solid var(--color-primary);
+    border-radius: 0 25px 25px 0; /* Square left, rounded right */
+    font-size: 18px;
+    cursor: pointer;
+    transition: all var(--transition-slow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 48px;
+    min-width: 48px;
+  }
+  
+  #search-button:hover,
+  .search-button:hover {
+    background-color: var(--color-primary-dark);
+    border-color: var(--color-primary-dark);
+  }
+  
+  #search-button:active,
+  .search-button:active {
+    transform: scale(0.98);
+  }
+  
+  #search-button:focus,
+  .search-button:focus {
+    outline: var(--border-width-medium) solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+  
+  /* When input is focused, style the button border too */
+  #search:focus + #search-button,
+  input[type="search"]:focus + .search-button {
+    border-color: var(--color-border-focus);
+  }
+  
+  /* ===== TEXTAREA ===== */
+  textarea {
+    resize: vertical;
+    min-height: 120px;
+    line-height: var(--line-height-base);
+  }
+  
+  /* ===== SELECT DROPDOWN ===== */
+  select {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right var(--space-sm) center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+    padding-right: var(--space-xl);
+    appearance: none;
+    cursor: pointer;
+  }
+  
+  /* ===== CHECKBOXES AND RADIO BUTTONS ===== */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: auto;
+    margin-right: var(--space-sm);
+    accent-color: var(--color-primary);
+  }
+  
+  .checkbox-group,
+  .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+  
+  .checkbox-item,
+  .radio-item {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  
+  .checkbox-item label,
+  .radio-item label {
+    margin-bottom: 0;
+    cursor: pointer;
+    font-weight: 400;
+  }
+  
+  /* ===== FILE INPUTS ===== */
+  input[type="file"] {
+    padding: var(--space-sm);
+    border: var(--border-width-medium) dashed var(--color-border-primary);
+    border-radius: var(--border-radius-base);
+    background-color: var(--color-bg-secondary);
+    cursor: pointer;
+  }
+  
+  input[type="file"]:hover {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-bg);
+  }
+  
+  /* ===== FORM VALIDATION STATES ===== */
+  .form-group.error input,
+  .form-group.error textarea,
+  .form-group.error select,
+  input.error,
+  textarea.error,
+  select.error {
+    border-color: var(--color-error);
+    background-color: rgba(239, 68, 68, 0.05);
+  }
+  
+  .form-group.error input:focus,
+  .form-group.error textarea:focus,
+  .form-group.error select:focus,
+  input.error:focus,
+  textarea.error:focus,
+  select.error:focus {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+  }
+  
+  .form-group.success input,
+  .form-group.success textarea,
+  .form-group.success select,
+  input.success,
+  textarea.success,
+  select.success {
+    border-color: var(--color-success);
+    background-color: rgba(16, 185, 129, 0.05);
+  }
+  
+  .form-group.success input:focus,
+  .form-group.success textarea:focus,
+  .form-group.success select:focus,
+  input.success:focus,
+  textarea.success:focus,
+  select.success:focus {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  }
+  
+  /* ===== HELP TEXT AND ERROR MESSAGES ===== */
+  .help-text {
+    font-size: var(--font-sm);
+    color: var(--color-text-muted);
+    margin-top: var(--space-xs);
+    line-height: var(--line-height-base);
+  }
+  
+  .error-message {
+    font-size: var(--font-sm);
+    color: var(--color-error);
+    margin-top: var(--space-xs);
+    line-height: var(--line-height-base);
+  }
+  
+  .success-message {
+    font-size: var(--font-sm);
+    color: var(--color-success);
+    margin-top: var(--space-xs);
+    line-height: var(--line-height-base);
+  }
+  
+  /* ===== FORM LAYOUTS ===== */
+  
+  /* Inline form */
+  .form-inline {
+    display: flex;
+    align-items: end;
+    gap: var(--space-base);
+    flex-wrap: wrap;
+  }
+  
+  .form-inline .form-group {
+    margin-bottom: 0;
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  /* Grid form */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--space-lg);
+  }
+  
+  /* Two column form */
+  .form-two-column {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+  }
+  
+  /* ===== INPUT SIZING ===== */
+  .input-sm {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-sm);
+  }
+  
+  .input-lg {
+    padding: var(--space-base) var(--space-lg);
+    font-size: var(--font-lg);
+  }
+  
+  /* ===== DISABLED STATES ===== */
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    background-color: var(--color-gray-100);
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  
+  /* ===== RESPONSIVE DESIGN ===== */
+  @media (max-width: 768px) {
+    form[role="search"] {
+      max-width: 100%;
+    }
+    
+    .form-inline {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    
+    .form-inline .form-group {
+      min-width: auto;
+    }
+    
+    .form-two-column {
+      grid-template-columns: 1fr;
+    }
+    
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    input,
+    textarea,
+    select {
+      font-size: var(--font-base);
+      padding: var(--space-sm);
+    }
+    
+    #search,
+    input[type="search"] {
+      border-radius: var(--border-radius-base) 0 0 var(--border-radius-base);
+      padding: var(--space-sm);
+    }
+    
+    #search-button,
+    .search-button {
+      border-radius: 0 var(--border-radius-base) var(--border-radius-base) 0;
+      padding: var(--space-sm);
+      height: auto;
+      min-width: auto;
+      font-size: var(--font-base);
+    }
+  }
