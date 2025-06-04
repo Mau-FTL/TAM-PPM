@@ -18,7 +18,7 @@ body.login-page {
     position: fixed;
     top: 0;
     left: 0;
-    font-size: 20vw;
+    font-size: 15vw;
     font-weight: 900;
     color: rgba(0, 0, 0);
     line-height: 0.9;
@@ -27,6 +27,7 @@ body.login-page {
     pointer-events: none;
     letter-spacing: -0.02em;
     text-transform: uppercase;
+    font-family: "Doto", sans-serif;
     
     /* Text stroke for better visibility */
     -webkit-text-stroke: 1px rgba(0, 0, 0, 0.05);

@@ -386,7 +386,7 @@
   header h1 {
     max-width: var(--container-max-width);
     margin: 0 auto;
-    text-align: center;
+    text-align: left;
     color: var(--color-text-primary);
   }
   

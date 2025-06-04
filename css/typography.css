@@ -2,6 +2,10 @@
    TYPOGRAPHY STYLES
    =================================== */
 
+
+/* ===== Fonts ===== */
+@import url('https://fonts.googleapis.com/css2?family=Doto:wght@100..900&display=swap');
+
 /* ===== BASE TYPOGRAPHY ===== */
 body {
     font-size: var(--font-base);
@@ -12,6 +16,17 @@ body {
     -moz-osx-font-smoothing: grayscale;
   }
   
+  /* ===== HEADINGS ===== */
+  header h1 {
+    font-size: var(--font-3xl);
+    font-family: "Doto", sans-serif;
+    line-height: var(--line-height-tight);
+    margin-bottom: var(--space-lg);
+    font-weight: 900;
+    text-transform: uppercase;
+    color: var(--color-text-primary);
+  }
+
   /* ===== HEADINGS ===== */
   h1 {
     font-size: var(--font-3xl);
