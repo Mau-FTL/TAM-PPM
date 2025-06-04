@@ -8,6 +8,36 @@
     <title>TAM PPM - Project List</title>
     <link rel="stylesheet" type="text/css" href="../css/main.css" />
     <style>
+      /* Override main layout for full width */
+      main {
+        max-width: 100vw;
+        margin: 0;
+        padding: var(--space-lg);
+      }
+
+      /* Full width section */
+      #ProjectList {
+        width: 100%;
+        max-width: 100%;
+      }
+
+      /* Table container with horizontal scroll */
+      .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+        border-radius: var(--border-radius-base);
+        box-shadow: var(--shadow-base);
+      }
+
+      /* Ensure table doesn't shrink below minimum width */
+      #projects-table {
+        min-width: 800px; /* Minimum width to ensure readability */
+        width: 100%;
+        margin-top: 0;
+      }
+
       /* Additional styles for the table */
       .document-link {
         color: var(--color-primary);
@@ -62,6 +92,10 @@
 
       /* Responsive adjustments */
       @media (max-width: 768px) {
+        main {
+          padding: var(--space-base);
+        }
+
         .table-header {
           flex-direction: column;
           gap: var(--space-base);
@@ -76,9 +110,17 @@
           flex: 1;
           min-width: 120px;
         }
+
+        #projects-table {
+          min-width: 600px; /* Smaller minimum on mobile */
+        }
       }
 
       @media (max-width: 480px) {
+        main {
+          padding: var(--space-sm);
+        }
+
         .document-link {
           font-size: var(--font-xs);
         }
@@ -91,6 +133,10 @@
         .table-actions button {
           font-size: 12px;
           padding: 4px 8px;
+        }
+
+        #projects-table {
+          min-width: 500px; /* Even smaller on very small screens */
         }
       }
     </style>
@@ -164,7 +210,6 @@
                       <table id="projects-table" class="sortable">
                           <thead>
                               <tr>
-                                  <th data-sort="id">Project ID</th>
                                   <th data-sort="title">Title</th>
                                   <th data-sort="status">Status</th>
                                   <th data-sort="category">Category</th>
@@ -252,7 +297,7 @@
           if (!projects || projects.length === 0) {
             tbody.innerHTML = `
                       <tr>
-                          <td colspan="8" class="table-empty">
+                          <td colspan="7" class="table-empty">
                               <div class="empty-icon">📋</div>
                               <p>No projects found</p>
                           </td>
@@ -271,7 +316,6 @@
 
               return `
                       <tr data-project-id="${project._id}">
-                          <td><code>${project._id}</code></td>
                           <td><strong>${project.Title}</strong></td>
                           <td>${getStatusBadge(project.Status)}</td>
                           <td>${project["Project Category"]}</td>
@@ -424,10 +468,6 @@
             let aVal, bVal;
 
             switch (field) {
-              case "id":
-                aVal = a._id;
-                bVal = b._id;
-                break;
               case "title":
                 aVal = a.Title;
                 bVal = b.Title;
