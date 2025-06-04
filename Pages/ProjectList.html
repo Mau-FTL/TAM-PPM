@@ -5,8 +5,95 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, initial-scale=1.0"
     />
-    <title>TAM PPM</title>
+    <title>TAM PPM - Project List</title>
     <link rel="stylesheet" type="text/css" href="../css/main.css" />
+    <style>
+      /* Additional styles for the table */
+      .document-link {
+        color: var(--color-primary);
+        text-decoration: none;
+        font-size: var(--font-sm);
+        display: inline-block;
+        margin: 2px 0;
+      }
+
+      .document-link:hover {
+        text-decoration: underline;
+      }
+
+      .table-header {
+        margin-bottom: var(--space-lg);
+      }
+
+      .table-header h2 {
+        margin-bottom: var(--space-base);
+      }
+
+      code {
+        background-color: var(--color-bg-secondary);
+        padding: 2px 6px;
+        border-radius: var(--border-radius-sm);
+        font-family: var(--font-family-mono);
+        font-size: var(--font-sm);
+      }
+
+      .text-muted {
+        color: var(--color-text-muted);
+        font-style: italic;
+      }
+
+      /* Loading state */
+      .table-loading {
+        opacity: 0.6;
+        pointer-events: none;
+      }
+
+      /* Empty state styling */
+      .table-empty {
+        text-align: center;
+        padding: var(--space-2xl);
+      }
+
+      .empty-icon {
+        font-size: 3rem;
+        margin-bottom: var(--space-base);
+        opacity: 0.5;
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+        .table-header {
+          flex-direction: column;
+          gap: var(--space-base);
+        }
+
+        .table-filters {
+          flex-wrap: wrap;
+          gap: var(--space-sm);
+        }
+
+        .table-filters select {
+          flex: 1;
+          min-width: 120px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .document-link {
+          font-size: var(--font-xs);
+        }
+
+        .table-actions {
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .table-actions button {
+          font-size: 12px;
+          padding: 4px 8px;
+        }
+      }
+    </style>
   </head>
 
   <body>
@@ -18,14 +105,396 @@
     <script src="../js/nav.js"></script>
 
     <main>
-      <section id="dashboard">
-        <!-- table will generate here -->
+      <section id="ProjectList">
+        <!-- Project table will be generated here by JavaScript -->
       </section>
     </main>
 
     <footer>
       <p>FTL TAM App Released 2025</p>
     </footer>
+
+    <!-- Include the project list script -->
+    <script>
+      // Project List Table Generator
+      // This script fetches project data from JSON and creates a dynamic table
+
+      document.addEventListener("DOMContentLoaded", function () {
+        // Configuration
+        const projectDataUrl = "../Data/ProjectList.json";
+        const tableContainer = document.getElementById("ProjectList");
+
+        // Create table structure
+        function createTableStructure() {
+          const tableHTML = `
+                  <div class="table-header">
+                      <h2>Projects Overview</h2>
+                      <div class="table-search">
+                          <form role="search">
+                              <div class="search-container">
+                                  <input
+                                      type="search"
+                                      id="project-search"
+                                      name="search"
+                                      placeholder="Search projects..."
+                                      autocomplete="off"
+                                  />
+                                  <button type="submit" id="search-button" class="search-button">🔍</button>
+                              </div>
+                          </form>
+                      </div>
+                      <div class="table-filters">
+                          <select id="status-filter">
+                              <option value="">All Status</option>
+                              <option value="Pending">Pending</option>
+                              <option value="Active">Active</option>
+                              <option value="Failed">Failed</option>
+                              <option value="Completed">Completed</option>
+                          </select>
+                          <select id="category-filter">
+                              <option value="">All Categories</option>
+                              <option value="Major Project">Major Project</option>
+                              <option value="Minor Project">Minor Project</option>
+                          </select>
+                      </div>
+                  </div>
+                  
+                  <div class="table-responsive">
+                      <table id="projects-table" class="sortable">
+                          <thead>
+                              <tr>
+                                  <th data-sort="id">Project ID</th>
+                                  <th data-sort="title">Title</th>
+                                  <th data-sort="status">Status</th>
+                                  <th data-sort="category">Category</th>
+                                  <th data-sort="scope">Scope</th>
+                                  <th data-sort="completion">Completion</th>
+                                  <th>Documents</th>
+                                  <th>Actions</th>
+                              </tr>
+                          </thead>
+                          <tbody id="projects-tbody">
+                              <!-- Projects will be inserted here -->
+                          </tbody>
+                      </table>
+                  </div>
+                  
+                  <div id="loading-indicator" style="display: none; text-align: center; padding: 2rem;">
+                      <p>Loading projects...</p>
+                  </div>
+                  
+                  <div id="error-message" style="display: none; text-align: center; padding: 2rem; color: var(--color-error);">
+                      <p>Error loading projects. Please try again.</p>
+                  </div>
+              `;
+
+          tableContainer.innerHTML = tableHTML;
+        }
+
+        // Generate status badge HTML
+        function getStatusBadge(status) {
+          const statusMap = {
+            Pending: "status-pending",
+            Active: "status-active",
+            Failed: "status-failed",
+            Completed: "status-success",
+            "In Progress": "status-info",
+          };
+
+          const cssClass = statusMap[status] || "status-inactive";
+          return `<span class="status-badge ${cssClass}">${status}</span>`;
+        }
+
+        // Generate documents HTML
+        function getDocumentsHTML(documents) {
+          if (!documents || documents.length === 0) {
+            return '<span class="text-muted">No documents</span>';
+          }
+
+          return documents
+            .map(
+              (doc) =>
+                `<a href="${doc.url}" target="_blank" title="${
+                  doc.name
+                }" class="document-link">
+                      📄 ${
+                        doc.name.length > 20
+                          ? doc.name.substring(0, 20) + "..."
+                          : doc.name
+                      }
+                  </a>`
+            )
+            .join("<br>");
+        }
+
+        // Generate action buttons
+        function getActionsHTML(projectId) {
+          return `
+                  <div class="table-actions">
+                      <button class="btn-view" onclick="viewProject('${projectId}')" title="View Project">
+                          👁️
+                      </button>
+                      <button class="btn-edit" onclick="editProject('${projectId}')" title="Edit Project">
+                          ✏️
+                      </button>
+                      <button class="btn-delete" onclick="deleteProject('${projectId}')" title="Delete Project">
+                          🗑️
+                      </button>
+                  </div>
+              `;
+        }
+
+        // Render projects in table
+        function renderProjects(projects) {
+          const tbody = document.getElementById("projects-tbody");
+
+          if (!projects || projects.length === 0) {
+            tbody.innerHTML = `
+                      <tr>
+                          <td colspan="8" class="table-empty">
+                              <div class="empty-icon">📋</div>
+                              <p>No projects found</p>
+                          </td>
+                      </tr>
+                  `;
+            return;
+          }
+
+          const rows = projects
+            .map((project) => {
+              const scopeList = Array.isArray(project["Scope Category"])
+                ? project["Scope Category"].join(", ")
+                : project["Scope Category"] || "N/A";
+
+              const completion = project["Time of Completion"] || "Not set";
+
+              return `
+                      <tr data-project-id="${project._id}">
+                          <td><code>${project._id}</code></td>
+                          <td><strong>${project.Title}</strong></td>
+                          <td>${getStatusBadge(project.Status)}</td>
+                          <td>${project["Project Category"]}</td>
+                          <td>${scopeList}</td>
+                          <td>${completion}</td>
+                          <td>${getDocumentsHTML(project.Documents)}</td>
+                          <td>${getActionsHTML(project._id)}</td>
+                      </tr>
+                  `;
+            })
+            .join("");
+
+          tbody.innerHTML = rows;
+        }
+
+        // Fetch and display projects
+        async function loadProjects() {
+          const loadingIndicator = document.getElementById("loading-indicator");
+          const errorMessage = document.getElementById("error-message");
+          const table = document.getElementById("projects-table");
+
+          // Show loading state
+          loadingIndicator.style.display = "block";
+          table.style.display = "none";
+          errorMessage.style.display = "none";
+
+          try {
+            const response = await fetch(projectDataUrl);
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const projects = await response.json();
+
+            // Hide loading and show table
+            loadingIndicator.style.display = "none";
+            table.style.display = "table";
+
+            // Render projects
+            renderProjects(projects);
+
+            // Setup search and filter functionality
+            setupSearchAndFilters(projects);
+
+            // Setup table sorting
+            setupTableSorting(projects);
+          } catch (error) {
+            console.error("Error loading projects:", error);
+
+            // Show error state
+            loadingIndicator.style.display = "none";
+            errorMessage.style.display = "block";
+            table.style.display = "none";
+          }
+        }
+
+        // Setup search and filter functionality
+        function setupSearchAndFilters(originalProjects) {
+          const searchInput = document.getElementById("project-search");
+          const statusFilter = document.getElementById("status-filter");
+          const categoryFilter = document.getElementById("category-filter");
+
+          function filterProjects() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const statusValue = statusFilter.value;
+            const categoryValue = categoryFilter.value;
+
+            const filteredProjects = originalProjects.filter((project) => {
+              // Search filter
+              const matchesSearch =
+                !searchTerm ||
+                project.Title.toLowerCase().includes(searchTerm) ||
+                project._id.toLowerCase().includes(searchTerm) ||
+                (project.Notes &&
+                  project.Notes.toLowerCase().includes(searchTerm));
+
+              // Status filter
+              const matchesStatus =
+                !statusValue || project.Status === statusValue;
+
+              // Category filter
+              const matchesCategory =
+                !categoryValue || project["Project Category"] === categoryValue;
+
+              return matchesSearch && matchesStatus && matchesCategory;
+            });
+
+            renderProjects(filteredProjects);
+          }
+
+          // Add event listeners
+          searchInput.addEventListener("input", filterProjects);
+          statusFilter.addEventListener("change", filterProjects);
+          categoryFilter.addEventListener("change", filterProjects);
+
+          // Prevent form submission on search
+          const searchForm = searchInput.closest("form");
+          if (searchForm) {
+            searchForm.addEventListener("submit", (e) => {
+              e.preventDefault();
+              filterProjects();
+            });
+          }
+        }
+
+        // Setup table sorting functionality
+        function setupTableSorting(projects) {
+          const headers = document.querySelectorAll(
+            "#projects-table th[data-sort]"
+          );
+          let currentSort = { field: null, direction: "asc" };
+
+          headers.forEach((header) => {
+            header.addEventListener("click", () => {
+              const field = header.dataset.sort;
+
+              // Toggle direction if same field, otherwise set to ascending
+              if (currentSort.field === field) {
+                currentSort.direction =
+                  currentSort.direction === "asc" ? "desc" : "asc";
+              } else {
+                currentSort.direction = "asc";
+              }
+
+              currentSort.field = field;
+
+              // Update header classes
+              headers.forEach((h) =>
+                h.classList.remove("sort-asc", "sort-desc")
+              );
+              header.classList.add(
+                currentSort.direction === "asc" ? "sort-asc" : "sort-desc"
+              );
+
+              // Sort and render projects
+              const sortedProjects = sortProjects(
+                [...projects],
+                field,
+                currentSort.direction
+              );
+              renderProjects(sortedProjects);
+            });
+          });
+        }
+
+        // Sort projects by field
+        function sortProjects(projects, field, direction) {
+          return projects.sort((a, b) => {
+            let aVal, bVal;
+
+            switch (field) {
+              case "id":
+                aVal = a._id;
+                bVal = b._id;
+                break;
+              case "title":
+                aVal = a.Title;
+                bVal = b.Title;
+                break;
+              case "status":
+                aVal = a.Status;
+                bVal = b.Status;
+                break;
+              case "category":
+                aVal = a["Project Category"];
+                bVal = b["Project Category"];
+                break;
+              case "scope":
+                aVal = Array.isArray(a["Scope Category"])
+                  ? a["Scope Category"].join(", ")
+                  : a["Scope Category"];
+                bVal = Array.isArray(b["Scope Category"])
+                  ? b["Scope Category"].join(", ")
+                  : b["Scope Category"];
+                break;
+              case "completion":
+                aVal = a["Time of Completion"] || "";
+                bVal = b["Time of Completion"] || "";
+                break;
+              default:
+                return 0;
+            }
+
+            // Convert to string for comparison
+            aVal = String(aVal || "").toLowerCase();
+            bVal = String(bVal || "").toLowerCase();
+
+            if (direction === "asc") {
+              return aVal.localeCompare(bVal);
+            } else {
+              return bVal.localeCompare(aVal);
+            }
+          });
+        }
+
+        // Initialize the table
+        createTableStructure();
+        loadProjects();
+      });
+
+      // Action button functions (you can customize these)
+      function viewProject(projectId) {
+        // Navigate to project details page or show modal
+        console.log("Viewing project:", projectId);
+        // Example: window.location.href = `project-details.html?id=${projectId}`;
+        alert(`Viewing project: ${projectId}`);
+      }
+
+      function editProject(projectId) {
+        // Navigate to edit page or show edit modal
+        console.log("Editing project:", projectId);
+        // Example: window.location.href = `edit-project.html?id=${projectId}`;
+        alert(`Editing project: ${projectId}`);
+      }
+
+      function deleteProject(projectId) {
+        // Show confirmation dialog and delete project
+        if (confirm(`Are you sure you want to delete project ${projectId}?`)) {
+          console.log("Deleting project:", projectId);
+          // Add your delete logic here
+          alert(`Project ${projectId} would be deleted`);
+        }
+      }
+    </script>
   </body>
-  <script></script>
 </html>

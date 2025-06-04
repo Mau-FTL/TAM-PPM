@@ -2,8 +2,8 @@
    LAYOUT & SPACING UTILITIES
    =================================== */
 
-/* ===== CONTAINER ===== */
-.container {
+  /* ===== CONTAINER ===== */
+  .container {
     max-width: var(--container-max-width);
     margin: 0 auto;
     padding: 0 var(--container-padding);
@@ -378,7 +378,6 @@
   
   /* ===== HEADER & FOOTER ===== */
   header {
-    background-color: var(--color-bg-primary);
     padding: var(--space-lg) var(--container-padding);
     border-bottom: var(--border-width-thin) solid var(--color-border-primary);
   }

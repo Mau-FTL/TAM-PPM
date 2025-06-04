@@ -10,19 +10,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Navigation items with their corresponding file names and correct paths
     const navItems = [
         { 
-            href: `${basePath}Pages/Dashboard.html`, 
+            href: `${basePath}pages/dashboard.html`, 
             text: 'Dashboard', 
             file: 'Dashboard.html', 
             folder: 'Pages' 
         },
         { 
-            href: `${basePath}Pages/ParkingPortfolio.html`, 
+            href: `${basePath}pages/parkingPortfolio.html`, 
             text: 'Parking Portfolio', 
             file: 'ParkingPortfolio.html', 
             folder: 'Pages' 
         },
         { 
-            href: `${basePath}Pages/location.html`, 
+            href: `${basePath}pages/location.html`, 
             text: 'Location', 
             file: 'location.html', 
             folder: 'Pages' 
@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
             file: null 
         },
         { 
-            href: `${basePath}Pages/ProjectList.html`, 
+            href: `${basePath}pages/projectList.html`, 
             text: 'Project List', 
             file: 'ProjectList.html', 
             folder: 'Pages' 
