@@ -1,20 +1,48 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Detect current location to build appropriate paths
     const currentPath = window.location.pathname;
-    const isInSubfolder = currentPath.includes('/ParkingPortfolio/');
-    const basePath = isInSubfolder ? '../' : '';
+    const isInPagesFolder = currentPath.includes('/Pages/');
+    const basePath = isInPagesFolder ? '../' : '';
     
     // Get current page name for active state
     const currentPage = currentPath.split('/').pop() || 'index.html';
     
-    // Navigation items with their corresponding file names
+    // Navigation items with their corresponding file names and correct paths
     const navItems = [
-        { href: `${basePath}index.html`, text: 'Dashboard', file: 'index.html' },
-        { href: `${basePath}ParkingPortfolio/index.html`, text: 'Parking Portfolio', file: 'index.html', folder: 'ParkingPortfolio' },
-        { href: `${basePath}ParkingPortfolio/location.html`, text: 'Location', file: 'location.html', folder: 'ParkingPortfolio' },
-        { href: '#transportationportfolio', text: 'Transportation Portfolio', file: null },
-        { href: '#garagelots', text: 'Garage & Lots', file: null },
-        { href: `${basePath}PropertyList/index.html`, text: 'Project List', file: null }
+        { 
+            href: `${basePath}Pages/Dashboard.html`, 
+            text: 'Dashboard', 
+            file: 'Dashboard.html', 
+            folder: 'Pages' 
+        },
+        { 
+            href: `${basePath}Pages/ParkingPortfolio.html`, 
+            text: 'Parking Portfolio', 
+            file: 'ParkingPortfolio.html', 
+            folder: 'Pages' 
+        },
+        { 
+            href: `${basePath}Pages/location.html`, 
+            text: 'Location', 
+            file: 'location.html', 
+            folder: 'Pages' 
+        },
+        { 
+            href: '#transportationportfolio', 
+            text: 'Transportation Portfolio', 
+            file: null 
+        },
+        { 
+            href: '#garagelots', 
+            text: 'Garage & Lots', 
+            file: null 
+        },
+        { 
+            href: `${basePath}Pages/ProjectList.html`, 
+            text: 'Project List', 
+            file: 'ProjectList.html', 
+            folder: 'Pages' 
+        }
     ];
     
     // Build navigation HTML
@@ -25,12 +53,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Check if current item should be active
         if (item.file) {
-            if (item.folder) {
-                // For subfolder items
-                isActive = isInSubfolder && currentPage === item.file && currentPath.includes(item.folder);
-            } else {
-                // For root items
-                isActive = !isInSubfolder && currentPage === item.file;
+            if (item.folder === 'Pages') {
+                // For Pages folder items (including Dashboard)
+                isActive = isInPagesFolder && currentPage === item.file;
             }
         }
         
