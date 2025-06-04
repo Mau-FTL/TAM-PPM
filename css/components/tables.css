@@ -244,11 +244,7 @@ td:last-child {
   max-width: 300px;
 }
 
-.table-filters {
-  display: flex;
-  gap: var(--space-sm);
-  align-items: center;
-}
+
 
 .table-filters select {
   padding: var(--space-xs) var(--space-sm);
