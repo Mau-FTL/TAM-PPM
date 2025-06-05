@@ -1,16 +1,11 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, initial-scale=1.0"
-    />
-    <title>TAM PPM</title>
-    <link rel="stylesheet" type="text/css" href="css/main.css" />
-
-    <script src="script.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TAM PPM - Login</title>
+    <link rel="stylesheet" href="./css/main.css" />
   </head>
-
   <body class="login-page">
     <div class="background-text">
       Transportation & Mobility Project Portfolio Management (PPM)
@@ -36,32 +31,57 @@
     <section id="login">
       <div class="login-card">
         <form id="login-form">
-          <input
-            type="text"
-            id="username"
-            name="username"
-            placeholder="Username"
-            required
-          />
+          <div class="error-message" id="error-message">
+            Please enter a password to continue.
+          </div>
+
+          <div class="success-message" id="success-message">
+            Access granted! Redirecting...
+          </div>
 
           <input
             type="password"
             id="password"
             name="password"
-            placeholder="Password"
+            placeholder="Enter Password"
             required
+            autocomplete="current-password"
           />
 
-          <button type="submit">
-            <!-- Temporary link -->
-            <a
-              href="../TAM-PPM/pages/dashboard.html"
-              style="text-decoration: none; color: white"
-              >Login</a
+          <button type="submit" id="login-button">Access Dashboard</button>
+
+          <div
+            class="quick-access"
+            style="margin-top: var(--space-lg); text-align: center"
+          >
+            <p
+              style="
+                color: var(--color-text-muted);
+                font-size: var(--font-sm);
+                margin-bottom: var(--space-sm);
+              "
             >
-          </button>
+              Quick Access:
+            </p>
+            <a
+              href="pages/dashboard.html"
+              style="
+                color: var(--color-primary);
+                text-decoration: none;
+                font-weight: 500;
+                padding: var(--space-sm) var(--space-base);
+                border: 1px solid var(--color-primary);
+                border-radius: var(--border-radius-sm);
+                transition: all var(--transition-base);
+              "
+            >
+              → Go to Dashboard
+            </a>
+          </div>
         </form>
       </div>
     </section>
+
+    <script src="./js/login.js"></script>
   </body>
 </html>

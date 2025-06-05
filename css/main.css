@@ -13,26 +13,30 @@
    7. Themes - Color scheme variations
 */
 
+/* ===== FONTS ===== */
+@import url("https://fonts.googleapis.com/css2?family=Doto:wght@100..900&display=swap");
+
 /* ===== CORE STYLES ===== */
-@import url('reset.css');
-@import url('variables.css');
-@import url('typography.css');
-@import url('layout.css');
+@import "./reset.css";
+@import "./variables.css";
+@import "./typography.css";
+@import "./layout.css";
 
 /* ===== COMPONENTS ===== */
-@import url('components/navigation.css');
-@import url('components/forms.css');
-@import url('components/tables.css');
-@import url('components/cards.css');
-@import url('components/login.css');
+@import "./components/navigation.css";
+@import "./components/forms.css";
+@import "./components/tables.css";
+@import "./components/cards.css";
+@import "./components/buttons.css";
+@import "./components/login.css";
 
 /* ===== PAGE-SPECIFIC STYLES ===== */
-@import url('location.css'); /* Existing location page styles */
+@import "./pages/location.css";
 
 /* ===== THEMES ===== */
-@import url('theme/light.css');
+@import "./themes/light.css";
 /* Dark theme can be conditionally loaded */
-/* @import url('theme/dark.css'); */
+/* @import './themes/dark.css'; */
 
 /* ===== UTILITY OVERRIDES ===== */
 /* Any specific overrides or custom utilities go here */
@@ -44,22 +48,22 @@
     color: black !important;
     box-shadow: none !important;
   }
-  
+
   nav,
   .no-print {
     display: none !important;
   }
-  
+
   main {
     padding: 0;
     margin: 0;
     max-width: none;
   }
-  
+
   .cards-container {
     display: block;
   }
-  
+
   .card,
   .parking-card {
     break-inside: avoid;
@@ -67,11 +71,11 @@
     box-shadow: none;
     border: var(--border-width-thin) solid black;
   }
-  
+
   table {
     break-inside: avoid;
   }
-  
+
   thead {
     display: table-header-group;
   }
