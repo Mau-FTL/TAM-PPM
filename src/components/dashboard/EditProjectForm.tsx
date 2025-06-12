@@ -5,277 +5,177 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import type { Project, ProjectFormData, Property, ProjectScopeCategory, ProjectFile, ProjectCategory } from '@/types';
-import { ProjectFormSchema, ProjectStatusEnum, NewProjectDefaultValues, ProjectScopeCategoryEnum, ProjectCategoryEnum } from '@/types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDateForInput } from '@/lib/utils';
-import FileUpload from './FileUpload';
-import { Separator } from '@/components/ui/separator';
+import { z } from 'zod';
+
+// Simplified project schema matching sampleData structure
+const ProjectFormSchema = z.object({
+  name: z.string().min(1, "Project name is required"),
+  description: z.string().optional(),
+  propertyId: z.string().min(1, "Property selection is required"),
+  startDate: z.string().min(1, "Start date is required"),
+  endDate: z.string().min(1, "End date is required"),
+  status: z.enum(['Pending', 'In Progress', 'Completed', 'Cancelled', 'On Hold']),
+  projectCategory: z.enum(['Minor Project', 'Major Project']),
+  scopeCategory: z.string().min(1, "Scope category is required"), // Single select in sampleData
+});
+
+type ProjectFormData = z.infer<typeof ProjectFormSchema>;
 
 interface ProjectFormProps {
-  project?: Project | Partial<Project>;
+  project?: any; // From sampleData or new
   isNewProject: boolean;
-  properties?: Property[];
-  onSave: (data: Project) => void;
+  properties?: any[];
+  onSave: (data: any) => void;
   onCancel: () => void;
 }
 
-const allScopeCategories = ProjectScopeCategoryEnum.options;
-const allProjectCategories = ProjectCategoryEnum.options;
+// Options based on your sampleData structure
+const PROJECT_STATUS_OPTIONS = [
+  'Pending',
+  'In Progress', 
+  'Completed',
+  'Cancelled',
+  'On Hold'
+];
+
+const PROJECT_CATEGORY_OPTIONS = [
+  'Minor Project',
+  'Major Project'
+];
+
+const SCOPE_CATEGORY_OPTIONS = [
+  'Routine',
+  'Cleanup',
+  'Inspection', 
+  'Installation',
+  'Renovation',
+  'Repair',
+  'Replacement',
+  'Survey',
+  'Upgrade'
+];
 
 export default function ProjectForm({ project, isNewProject, properties, onSave, onCancel }: ProjectFormProps) {
-  const defaultVals = isNewProject
-    ? {
-        ...NewProjectDefaultValues,
-        propertyId: project?.propertyId || '',
-        name: project?.name || NewProjectDefaultValues.name,
-        scopeCategory: [],
-        projectCategory: NewProjectDefaultValues.projectCategory,
-        status: ProjectStatusEnum.Values.Pending, // Updated default status
-      }
-    : {
-        name: project?.name || '',
-        startDate: project?.startDate ? formatDateForInput(project.startDate) : '',
-        endDate: project?.endDate ? formatDateForInput(project.endDate) : '',
-        status: project?.status || ProjectStatusEnum.Values.Pending, // Updated default status
-        projectCategory: project?.projectCategory || ProjectCategoryEnum.Values['Minor Project'],
-        scopeCategory: project?.scopeCategory || [],
-        propertyId: project?.propertyId || '',
-      };
-
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(ProjectFormSchema),
-    defaultValues: defaultVals as ProjectFormData,
+    defaultValues: {
+      name: project?.name || '',
+      description: project?.description || '',
+      propertyId: project?.property || project?.propertyId || '',
+      startDate: project?.startDate ? formatDateForInput(project.startDate) : formatDateForInput(new Date().toISOString()),
+      endDate: project?.endDate ? formatDateForInput(project.endDate) : formatDateForInput(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()),
+      status: project?.status || 'Pending',
+      projectCategory: project?.projectCategory || 'Minor Project',
+      scopeCategory: project?.scopeCategory || 'Routine',
+    },
   });
 
-  const [managedFiles, setManagedFiles] = useState<ProjectFile[]>(project?.files || []);
-
-  useEffect(() => {
-    setManagedFiles(project?.files || []);
-  }, [project?.files]);
-
-  const handleFileUploadInternal = (file: ProjectFile) => {
-    setManagedFiles(prevFiles => [...prevFiles, file]);
-  };
-
-  const handleFileDeleteInternal = (fileId: string) => {
-    setManagedFiles(prevFiles => prevFiles.filter(f => f.id !== fileId));
-  };
-
   const onSubmit = (data: ProjectFormData) => {
-    const submittedProject: Project = {
-      ...(isNewProject ? {} : project),
-      id: isNewProject ? `proj-${Date.now()}-${Math.random().toString(36).substring(2,7)}` : project!.id,
-      propertyId: data.propertyId,
+    // Transform data to match expected format
+    const transformedData = {
+      id: isNewProject ? `P${Date.now().toString().slice(-4)}` : project?.id,
       name: data.name,
+      description: data.description,
+      property: data.propertyId,
+      propertyId: data.propertyId,
       startDate: new Date(data.startDate).toISOString(),
       endDate: new Date(data.endDate).toISOString(),
       status: data.status,
-      progressPercentage: isNewProject ? 0 : project?.progressPercentage || 0,
       projectCategory: data.projectCategory,
-      scopeCategory: data.scopeCategory || [],
-      updates: isNewProject ? [] : project!.updates || [],
-      files: managedFiles,
-      currentSummary: isNewProject ? '' : project!.currentSummary,
+      scopeCategory: data.scopeCategory, // Single string in sampleData
+      documents: project?.documents || [],
+      updates: project?.updates || [],
+      files: project?.files || [],
+      progressPercentage: project?.progressPercentage || 0,
+      currentSummary: data.description,
     };
-    onSave(submittedProject);
+    
+    onSave(transformedData);
   };
-
-  const currentProjectId = project?.id || 'new-project-files';
-
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {isNewProject && !project?.propertyId && properties && (
-          <FormField
-            control={form.control}
-            name="propertyId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Property</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a property" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {properties.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Project Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Enter project name" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="startDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Start Date</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} value={field.value ? formatDateForInput(field.value) : ''} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="endDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>End Date</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} value={field.value ? formatDateForInput(field.value) : ''} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Status</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                    {Object.values(ProjectStatusEnum.Values).map((statusValue) => (
-                        <SelectItem key={statusValue} value={statusValue}>
-                        {statusValue}
-                        </SelectItem>
-                    ))}
-                    </SelectContent>
-                </Select>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-
-        <FormField
-          control={form.control}
-          name="projectCategory"
-          render={({ field }) => (
-            <FormItem className="space-y-3">
-              <FormLabel>Project Category</FormLabel>
-              <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  className="flex flex-col space-y-1 sm:flex-row sm:space-y-0 sm:space-x-4"
-                >
-                  {allProjectCategories.map((category) => (
-                    <FormItem key={category} className="flex items-center space-x-2 space-y-0">
-                      <FormControl>
-                        <RadioGroupItem value={category} />
-                      </FormControl>
-                      <FormLabel className="font-normal">
-                        {category}
-                      </FormLabel>
-                    </FormItem>
-                  ))}
-                </RadioGroup>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-
-        <FormItem>
-          <FormLabel>Scope Categories</FormLabel>
-           <FormDescription>Select one or more relevant scope categories.</FormDescription>
-          <div className="space-y-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-1">
-            {allScopeCategories.map((scopeItem) => (
+        
+        {/* Basic Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Project Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            
+            {/* Property Selection - Single select dropdown (required) */}
+            {isNewProject && properties && (
               <FormField
-                key={scopeItem}
                 control={form.control}
-                name="scopeCategory"
-                render={({ field }) => {
-                  return (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                name="propertyId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Property *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <Checkbox
-                          checked={field.value?.includes(scopeItem as ProjectScopeCategory)}
-                          onCheckedChange={(checked) => {
-                            const currentValue = field.value || [];
-                            return checked
-                              ? field.onChange([...currentValue, scopeItem])
-                              : field.onChange(
-                                  currentValue.filter(
-                                    (value) => value !== scopeItem
-                                  )
-                                );
-                          }}
-                        />
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a property" />
+                        </SelectTrigger>
                       </FormControl>
-                      <FormLabel className="text-sm font-normal">
-                        {scopeItem}
-                      </FormLabel>
-                    </FormItem>
-                  );
-                }}
+                      <SelectContent>
+                        {properties.map((property) => (
+                          <SelectItem key={property.id} value={property.id}>
+                            {property.name || property.details?.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            ))}
-          </div>
-          <FormMessage />
-        </FormItem>
+            )}
 
-        <Separator className="my-6" />
-
-        <div>
-            <FormLabel className="text-base font-medium">Project Files</FormLabel>
-            <FormDescription className="mb-2">Upload and manage files related to this project (e.g., PDFs, images).</FormDescription>
-            <FileUpload
-                projectId={currentProjectId}
-                uploadedFiles={managedFiles}
-                onFileUpload={handleFileUploadInternal}
-                onFileDelete={handleFileDeleteInternal}
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Project Name *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter project name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-        </div>
 
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Enter project description" 
+                      {...field} 
+                      rows={3}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <div className="flex justify-end space-x-3 pt-4">
-          <Button type="button" variant="destructive" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="success">{isNewProject ? 'Add Project' : 'Save Changes'}</Button>
-        </div>
-      </form>
-    </Form>
-  );
-}
+            {/* Date Range */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="startDate"
+                render={({ field }) => (
+                  <FormItem>

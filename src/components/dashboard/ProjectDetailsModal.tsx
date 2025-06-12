@@ -1,8 +1,6 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { Project, ProjectFile, ProjectUpdate, ProjectScopeCategory } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
@@ -14,14 +12,14 @@ import { Building, CalendarDays, CheckCircle2, ClipboardList, FileText, Info, Li
 import { useToast } from "@/hooks/use-toast";
 
 interface ProjectDetailsModalProps {
-  project: Project | null;
+  project: any | null; // sampleData project structure
   propertyName: string;
   isOpen: boolean;
   onClose: () => void;
-  onNoteAdded: (projectId: string, newUpdate: ProjectUpdate) => void;
+  onNoteAdded: (projectId: string, newUpdate: any) => void;
 }
 
-const getStatusBadgeVariant = (status: Project['status']): BadgeProps['variant'] => {
+const getStatusBadgeVariant = (status: string): BadgeProps['variant'] => {
   switch (status) {
     case 'Completed': return "pastel-green";
     case 'In Progress': return "pastel-yellow";
@@ -32,7 +30,7 @@ const getStatusBadgeVariant = (status: Project['status']): BadgeProps['variant']
   }
 };
 
-const getStatusIcon = (status: Project['status']) => {
+const getStatusIcon = (status: string) => {
   const iconProps = { className: "mr-2 h-4 w-4" };
   switch (status) {
     case 'Pending': return <ClipboardList {...iconProps} />;
@@ -44,32 +42,27 @@ const getStatusIcon = (status: Project['status']) => {
   }
 };
 
-const getFileIcon = (type: ProjectFile['type']) => {
+const getFileIcon = (documentType: string) => {
   const iconProps = { className: "h-5 w-5 text-muted-foreground mr-2" };
-  switch (type) {
-    case 'document':
+  switch (documentType?.toUpperCase()) {
+    case 'PDF':
       return <FileText {...iconProps} />;
-    case 'image':
+    case 'IMAGE':
+    case 'JPG':
+    case 'PNG':
       return <ImageIcon {...iconProps} />;
     default:
       return <Paperclip {...iconProps} />;
   }
 };
 
-const scopeCategoryBadgeVariants: Record<ProjectScopeCategory, BadgeProps['variant']> = {
-  'Cleanup': 'pastel-blue',
-  'Inspection': 'pastel-green',
-  'Installation': 'pastel-pink',
-  'Renovation': 'pastel-yellow',
-  'Repair': 'pastel-purple',
-  'Replacement': 'pastel-blue',
-  'Routine': 'pastel-green',
-  'Survey': 'pastel-pink',
-  'Upgrade': 'pastel-yellow',
-};
-
-
-export default function ProjectDetailsModal({ project: initialProject, propertyName, isOpen, onClose, onNoteAdded }: ProjectDetailsModalProps) {
+export default function ProjectDetailsModal({ 
+  project: initialProject, 
+  propertyName, 
+  isOpen, 
+  onClose, 
+  onNoteAdded 
+}: ProjectDetailsModalProps) {
   const { toast } = useToast();
   const [newNoteText, setNewNoteText] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
@@ -92,7 +85,7 @@ export default function ProjectDetailsModal({ project: initialProject, propertyN
     if (!initialProject) return;
 
     setIsAddingNote(true);
-    const newUpdateEntry: ProjectUpdate = {
+    const newUpdateEntry = {
       id: `update-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       timestamp: new Date().toISOString(),
       text: newNoteText.trim(),
@@ -106,29 +99,41 @@ export default function ProjectDetailsModal({ project: initialProject, propertyN
     }, 500);
   };
 
-  const handleFileViewClick = (file: ProjectFile) => {
-    if (file.url) {
-      const newWindow = window.open(file.url, '_blank');
-      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-        // Pop-up likely blocked
+  const handleFileViewClick = (document: any) => {
+    if (document.fileUrl) {
+      // Handle actual URLs
+      if (document.fileUrl.startsWith('http')) {
+        const newWindow = window.open(document.fileUrl, '_blank');
+        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+          toast({
+            title: "File Preview Blocked",
+            description: `Your browser might have blocked the pop-up for ${document.name}. Please check your pop-up blocker settings.`,
+            variant: "destructive",
+          });
+        }
+      } else {
+        // Handle mock URLs from sampleData
         toast({
-          title: "File Preview Blocked",
-          description: `Your browser might have blocked the pop-up for ${file.name}. Please check your pop-up blocker settings.`,
-          variant: "destructive",
+          title: "Demo File",
+          description: `This is a demo file: ${document.name}. In a real application, this would open the document.`,
+          variant: "default",
         });
       }
     } else {
       toast({
         title: "File URL Missing",
-        description: `Cannot open ${file.name} as its URL is not available.`,
+        description: `Cannot open ${document.name} as its URL is not available.`,
         variant: "destructive",
       });
     }
   };
 
+  // Handle both old format (updates array) and sampleData format (notes)
+  const projectNotes = initialProject.updates || [];
+  const projectDocuments = initialProject.documents || initialProject.files || [];
 
-  const lastUpdated = initialProject.updates.length > 0
-    ? new Date(initialProject.updates[initialProject.updates.length - 1].timestamp).toLocaleDateString()
+  const lastUpdated = projectNotes.length > 0
+    ? new Date(projectNotes[projectNotes.length - 1].timestamp || projectNotes[projectNotes.length - 1].createdAt).toLocaleDateString()
     : new Date(initialProject.startDate).toLocaleDateString();
 
   return (
@@ -147,6 +152,7 @@ export default function ProjectDetailsModal({ project: initialProject, propertyN
                 </h4>
                 <p className="text-foreground">{propertyName}</p>
               </div>
+              
               <div>
                 <h4 className="font-semibold text-sm text-muted-foreground flex items-center mb-1">
                   <Info className="h-4 w-4 mr-2 text-accent" /> Status
@@ -156,38 +162,44 @@ export default function ProjectDetailsModal({ project: initialProject, propertyN
                   {initialProject.status}
                 </Badge>
               </div>
+              
               <div>
                 <h4 className="font-semibold text-sm text-muted-foreground flex items-center mb-1">
-                  <CalendarDays className="h-4 w-4 mr-2 text-accent" /> Time of Completion (End Date)
+                  <CalendarDays className="h-4 w-4 mr-2 text-accent" /> Project Timeline
                 </h4>
-                <p className="text-foreground">{new Date(initialProject.endDate).toLocaleDateString()}</p>
+                <p className="text-foreground text-sm">
+                  <strong>Start:</strong> {new Date(initialProject.startDate).toLocaleDateString()}
+                </p>
+                {initialProject.endDate && (
+                  <p className="text-foreground text-sm">
+                    <strong>End:</strong> {new Date(initialProject.endDate).toLocaleDateString()}
+                  </p>
+                )}
+                <p className="text-foreground text-sm">
+                  <strong>Last Updated:</strong> {lastUpdated}
+                </p>
               </div>
+              
               <div>
                 <h4 className="font-semibold text-sm text-muted-foreground flex items-center mb-1">
-                  <CalendarDays className="h-4 w-4 mr-2 text-accent" /> Last Updated
+                  <Tag className="h-4 w-4 mr-2 text-accent" /> Project Details
                 </h4>
-                <p className="text-foreground">{lastUpdated}</p>
+                <p className="text-foreground text-sm">
+                  <strong>Category:</strong> {initialProject.projectCategory || 'N/A'}
+                </p>
+                <p className="text-foreground text-sm">
+                  <strong>Scope:</strong> {initialProject.scopeCategory || 'N/A'}
+                </p>
               </div>
-              <div>
+
+              {initialProject.description && (
+                <div>
                   <h4 className="font-semibold text-sm text-muted-foreground flex items-center mb-1">
-                  <Tag className="h-4 w-4 mr-2 text-accent" /> Project Category
+                    <Info className="h-4 w-4 mr-2 text-accent" /> Description
                   </h4>
-                  <p className="text-foreground">{initialProject.projectCategory || 'N/A'}</p>
-              </div>
-              <div>
-                  <h4 className="font-semibold text-sm text-muted-foreground flex items-center mb-1">
-                      <Tag className="h-4 w-4 mr-2 text-accent" /> Scope Category
-                  </h4>
-                  {initialProject.scopeCategory && initialProject.scopeCategory.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                      {initialProject.scopeCategory.map(scope => (
-                          <Badge key={scope} variant={scopeCategoryBadgeVariants[scope] || 'secondary'} className="text-xs">{scope}</Badge>
-                      ))}
-                      </div>
-                  ) : (
-                      <p className="text-foreground">N/A</p>
-                  )}
-              </div>
+                  <p className="text-foreground text-sm">{initialProject.description}</p>
+                </div>
+              )}
 
               <Separator />
 
@@ -196,20 +208,26 @@ export default function ProjectDetailsModal({ project: initialProject, propertyN
                 <h4 className="font-semibold text-sm text-muted-foreground flex items-center mb-2">
                   <Paperclip className="h-4 w-4 mr-2 text-accent" /> Documents
                 </h4>
-                {initialProject.files.length > 0 ? (
+                {projectDocuments.length > 0 ? (
                   <ul className="space-y-2">
-                    {initialProject.files.map((file: ProjectFile) => (
-                      <li key={file.id} className="flex items-center text-sm p-2 border rounded-md bg-muted/50 hover:bg-muted/80">
-                        {getFileIcon(file.type)}
-                        <span className="text-foreground flex-grow truncate" title={file.name}>{file.name}</span>
-                        {file.size && <span className="text-xs text-muted-foreground ml-2">({file.size})</span>}
+                    {projectDocuments.map((document: any) => (
+                      <li key={document.id} className="flex items-center text-sm p-2 border rounded-md bg-muted/50 hover:bg-muted/80">
+                        {getFileIcon(document.documentType || document.type)}
+                        <span className="text-foreground flex-grow truncate" title={document.name}>
+                          {document.name}
+                        </span>
+                        {document.description && (
+                          <span className="text-xs text-muted-foreground ml-2" title={document.description}>
+                            ({document.description})
+                          </span>
+                        )}
                         <Button
-                            variant="link"
-                            size="sm"
-                            className="ml-2 p-0 h-auto text-accent hover:underline"
-                            onClick={() => handleFileViewClick(file)}
+                          variant="link"
+                          size="sm"
+                          className="ml-2 p-0 h-auto text-accent hover:underline"
+                          onClick={() => handleFileViewClick(document)}
                         >
-                            View
+                          View
                         </Button>
                       </li>
                     ))}
@@ -225,9 +243,10 @@ export default function ProjectDetailsModal({ project: initialProject, propertyN
               {/* Notes */}
               <div>
                 <h4 className="font-semibold text-sm text-muted-foreground flex items-center mb-2">
-                  <MessageSquare className="h-4 w-4 mr-2 text-accent" /> Notes (Updates)
+                  <MessageSquare className="h-4 w-4 mr-2 text-accent" /> Notes
                 </h4>
-                 {/* ADD NEW NOTE FORM */}
+                
+                {/* Add New Note Form */}
                 <div className="space-y-2 mb-4">
                   <Label htmlFor={`new-note-modal-${initialProject.id}`}>Add New Note</Label>
                   <Textarea
@@ -243,14 +262,17 @@ export default function ProjectDetailsModal({ project: initialProject, propertyN
                     {isAddingNote ? 'Adding Note...' : 'Add Note'}
                   </Button>
                 </div>
-                {/* ACTUAL LIST OF NOTES */}
-                {initialProject.updates.length > 0 ? (
-                   <ScrollArea className="h-[30vh] pr-4">
+                
+                {/* Actual List of Notes */}
+                {projectNotes.length > 0 ? (
+                  <ScrollArea className="h-[30vh] pr-4">
                     <div className="space-y-3">
-                      {initialProject.updates.slice().reverse().map((update: ProjectUpdate) => (
-                        <div key={update.id} className="text-sm p-2 border-l-2 border-accent bg-muted/50 rounded-r-md">
-                          <p className="text-foreground">{update.text}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{new Date(update.timestamp).toLocaleString()}</p>
+                      {projectNotes.slice().reverse().map((note: any) => (
+                        <div key={note.id} className="text-sm p-2 border-l-2 border-accent bg-muted/50 rounded-r-md">
+                          <p className="text-foreground">{note.text || note.content}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {new Date(note.timestamp || note.createdAt).toLocaleString()}
+                          </p>
                         </div>
                       ))}
                     </div>
