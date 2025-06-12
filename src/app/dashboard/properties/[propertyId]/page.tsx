@@ -9,10 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { properties as initialPropertiesData } from '@/data/properties';
-import { projects as initialProjectsData } from '@/data/projects';
-import type { Property, Project, PropertyFormData, PropertyFeature, ProjectUpdate, ProjectScopeCategory } from '@/types';
-import { NewProjectDefaultValues } from '@/types';
 import { Loader2, ArrowLeft, Edit3, PlusCircle, MapPin as MapPinIcon, CalendarDays, CheckCircle2, ClipboardList, ListChecks, XCircle, Car, Info, Eye, Trash2, Award, Zap, Umbrella, Clock, Lightbulb, Signpost, Shield, TreePine, Recycle, Building2, Sigma, ToyBrick, Ruler, LogIn, LogOut, CreditCard, Gauge, AlertTriangle, Accessibility, Bolt, Bike } from 'lucide-react';
 import ProjectDetailsModal from '@/components/dashboard/ProjectDetailsModal';
 import ProjectModal from '@/components/dashboard/EditProjectModal';
@@ -23,27 +19,46 @@ import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth, ProtectedRoute } from '@/context/AuthContext';
 
-const getFeatureIcon = (feature: PropertyFeature) => {
+// Import the data service
+import { dataService, type Property, type Project, type ProjectUpdate } from '@/lib/dataService';
+
+const getFeatureIcon = (feature: string) => {
   const iconProps = { className: "h-4 w-4 mr-1.5" };
   switch (feature) {
-    case 'ADA Parking': return <Accessibility {...iconProps} />;
-    case '24/7 Parking': return <Clock {...iconProps} />;
-    case '7FT Tall Clearance': return <Ruler {...iconProps} />;
-    case 'Electric Charging': return <Bolt {...iconProps} />;
-    case 'Roof Covering': return <Umbrella {...iconProps} />;
-    default: return <Award {...iconProps} />;
+    case 'ADA Parking':
+    case 'ADA Compliant': 
+      return <Accessibility {...iconProps} />;
+    case '24/7 Parking':
+    case 'twentyFourSevenParking':
+      return <Clock {...iconProps} />;
+    case '7FT Tall Clearance':
+    case 'sevenFtTallClearance': 
+      return <Ruler {...iconProps} />;
+    case 'Electric Charging':
+    case 'electricChargingAvailable':
+      return <Bolt {...iconProps} />;
+    case 'Roof Covering':
+    case 'roofCovering':
+      return <Umbrella {...iconProps} />;
+    default: 
+      return <Award {...iconProps} />;
   }
 };
 
-const featureBadgeVariants: Record<PropertyFeature, BadgeProps['variant']> = {
+const featureBadgeVariants: Record<string, BadgeProps['variant']> = {
   'ADA Parking': 'pastel-blue',
+  'ADA Compliant': 'pastel-blue',
   '24/7 Parking': 'pastel-green',
+  'twentyFourSevenParking': 'pastel-green',
   '7FT Tall Clearance': 'pastel-pink',
+  'sevenFtTallClearance': 'pastel-pink',
   'Electric Charging': 'pastel-yellow',
+  'electricChargingAvailable': 'pastel-yellow',
   'Roof Covering': 'pastel-purple',
+  'roofCovering': 'pastel-purple',
 };
 
-const getStatusBadgeVariant = (status: Project['status']): BadgeProps['variant'] => {
+const getStatusBadgeVariant = (status: string): BadgeProps['variant'] => {
   switch (status) {
     case 'Completed': return "pastel-green";
     case 'In Progress': return "pastel-yellow";
@@ -54,19 +69,7 @@ const getStatusBadgeVariant = (status: Project['status']): BadgeProps['variant']
   }
 };
 
-const scopeCategoryBadgeVariants: Record<ProjectScopeCategory, BadgeProps['variant']> = {
-  'Cleanup': 'pastel-blue',
-  'Inspection': 'pastel-green',
-  'Installation': 'pastel-pink',
-  'Renovation': 'pastel-yellow',
-  'Repair': 'pastel-purple',
-  'Replacement': 'pastel-blue',
-  'Routine': 'pastel-green',
-  'Survey': 'pastel-pink',
-  'Upgrade': 'pastel-yellow',
-};
-
-const getStatusIcon = (status: Project['status']) => {
+const getStatusIcon = (status: string) => {
   const iconProps = { className: "mr-2 h-4 w-4" };
   switch (status) {
     case 'Pending': return <ClipboardList {...iconProps} />;
@@ -99,6 +102,82 @@ const DetailItem: React.FC<{ label: string; value: string | number | string[] | 
   );
 };
 
+// Helper function to derive features from property data
+const derivePropertyFeatures = (property: Property): string[] => {
+  const features: string[] = [];
+  
+  // Check if it's sampleData format (has infrastructureAmenities, propertyFeatures, etc.)
+  if ('infrastructureAmenities' in property) {
+    // Handle sampleData structure
+    const infraFeatures = (property as any).infrastructureAmenities?.accessibilityFeatures || [];
+    if (infraFeatures.includes('ADA Compliant')) {
+      features.push('ADA Compliant');
+    }
+    
+    const propFeatures = (property as any).propertyFeatures || {};
+    if (propFeatures.adaParkingAvailable) features.push('ADA Parking');
+    if (propFeatures.electricChargingAvailable) features.push('Electric Charging');
+    if (propFeatures.roofCovering) features.push('Roof Covering');
+    if (propFeatures.sevenFtTallClearance) features.push('7FT Tall Clearance');
+    if (propFeatures.twentyFourSevenParking) features.push('24/7 Parking');
+  } else {
+    // Handle regular Property structure
+    if (property.features) {
+      features.push(...property.features);
+    }
+  }
+  
+  return features;
+};
+
+// Helper function to get display data from property (handles both formats)
+const getPropertyDisplayData = (property: Property) => {
+  const isSampleDataFormat = 'details' in property;
+  
+  return {
+    name: isSampleDataFormat ? (property as any).details?.name : property.name,
+    address: isSampleDataFormat ? (property as any).details?.address : property.address,
+    description: isSampleDataFormat ? (property as any).details?.description : property.description,
+    imageUrl: isSampleDataFormat ? (property as any).details?.imgURL : property.imageUrl,
+    features: derivePropertyFeatures(property),
+    
+    // Parking data
+    totalParking: isSampleDataFormat 
+      ? Object.values((property as any).parkingCapacity?.totalParking || {}).reduce((a: number, b: number) => a + b, 0)
+      : property.totalParking,
+    generalParking: isSampleDataFormat ? (property as any).parkingCapacity?.totalParking?.generalParking : property.generalParking,
+    adaParking: isSampleDataFormat ? (property as any).parkingCapacity?.totalParking?.adaParking : property.adaParking,
+    evParking: isSampleDataFormat ? (property as any).parkingCapacity?.totalParking?.evParking : property.evParking,
+    cityStaffParking: isSampleDataFormat ? (property as any).parkingCapacity?.totalParking?.cityStaffParking : property.cityStaffParking,
+    lifeguardParking: isSampleDataFormat ? (property as any).parkingCapacity?.totalParking?.lifeguardParking : property.lifeguardParking,
+    otherSpaces: isSampleDataFormat ? (property as any).parkingCapacity?.totalParking?.otherParking : property.otherSpaces,
+    
+    // Lighting
+    smallLights: isSampleDataFormat ? (property as any).lighting?.totalLighting?.smallLights : property.smallLights,
+    largeLights: isSampleDataFormat ? (property as any).lighting?.totalLighting?.largeLights : property.largeLights,
+    totalLighting: isSampleDataFormat 
+      ? ((property as any).lighting?.totalLighting?.smallLights || 0) + ((property as any).lighting?.totalLighting?.largeLights || 0)
+      : property.totalLighting,
+    
+    // Infrastructure
+    securityFeatures: isSampleDataFormat ? (property as any).infrastructureAmenities?.securityFeatures : property.securityFeatures,
+    elevatorCount: isSampleDataFormat ? (property as any).infrastructureAmenities?.elevatorCount : property.elevatorsCount,
+    stairs: isSampleDataFormat ? (property as any).infrastructureAmenities?.stairs : property.stairsCount,
+    carStops: isSampleDataFormat ? (property as any).infrastructureAmenities?.carStops : property.carStopsCount,
+    bikeFacilities: isSampleDataFormat ? (property as any).infrastructureAmenities?.bikeFacilities : property.bikeFacilities,
+    
+    // Operational
+    surfaceCondition: isSampleDataFormat ? (property as any).operationalDetails?.surfaceCondition : property.surfaceCondition,
+    surfaceType: isSampleDataFormat 
+      ? (property as any).operationalDetails?.surfaceType?.join?.(', ') || (property as any).operationalDetails?.surfaceType
+      : property.surfaceType,
+    clearanceRequirements: isSampleDataFormat ? (property as any).operationalDetails?.clearanceRequirements : property.clearanceRequirements,
+    entryPoints: isSampleDataFormat ? (property as any).operationalDetails?.accessPoints?.entrances : property.entryPoints,
+    exitPoints: isSampleDataFormat ? (property as any).operationalDetails?.accessPoints?.exits : property.exitPoints,
+    paymentSystems: isSampleDataFormat ? (property as any).operationalDetails?.paymentSystems : property.paymentSystems,
+    totalMeters: isSampleDataFormat ? (property as any).operationalDetails?.totalMeters : property.totalMeters,
+  };
+};
 
 function PropertyDetailsContent() {
   const router = useRouter();
@@ -123,30 +202,81 @@ function PropertyDetailsContent() {
 
   const [isEditPropertyModalOpen, setIsEditPropertyModalOpen] = useState(false);
 
-
   useEffect(() => {
-    if (propertyId) {
-      setTimeout(() => {
-        const foundProperty = initialPropertiesData.find(p => p.id === propertyId);
+    const fetchPropertyData = () => {
+      if (!propertyId) {
+        setIsDataInitialized(false);
+        router.replace('/dashboard/properties');
+        return;
+      }
+
+      try {
+        console.log("Loading property data from sampleData...");
+        
+        // Get property from dataService
+        const foundProperty = dataService.getProperty(propertyId);
         if (foundProperty) {
           setProperty(foundProperty);
-          const currentGlobalProjects = initialProjectsData;
-          const projectsForProperty = currentGlobalProjects.filter(proj => proj.propertyId === propertyId);
+          
+          // Get projects for this property
+          const projectsForProperty = dataService.getProjectsForProperty(propertyId);
           setPropertyProjects(projectsForProperty);
+          
+          console.log("Loaded property data:", {
+            property: foundProperty.name,
+            projects: projectsForProperty.length
+          });
+          
+          toast({
+            title: "Property Loaded",
+            description: `Loaded ${foundProperty.name} with ${projectsForProperty.length} projects.`,
+            variant: "default"
+          });
         } else {
+          console.log("Property not found:", propertyId);
+          toast({
+            title: "Property Not Found",
+            description: "The requested property could not be found.",
+            variant: "destructive"
+          });
           router.replace('/dashboard/properties');
         }
+      } catch (error: any) {
+        console.error("Error loading property data:", error);
+        toast({
+          title: "Error Loading Property",
+          description: error.message || "Could not load property data.",
+          variant: "destructive"
+        });
+        router.replace('/dashboard/properties');
+      } finally {
         setIsDataInitialized(true);
-      }, 100);
-    } else {
-      setIsDataInitialized(false);
-      router.replace('/dashboard/properties');
+      }
+    };
+
+    if (!isLoadingAuth) {
+      fetchPropertyData();
     }
-  }, [router, propertyId]);
+  }, [propertyId, router, isLoadingAuth, toast]);
 
   const handleOpenNewProjectForm = useCallback(() => {
     if (!property) return;
-    setProjectForForm({ ...NewProjectDefaultValues, propertyId: property.id });
+    const newProjectDefaults = {
+      name: '',
+      description: '',
+      propertyId: property.id,
+      property: property.id,
+      startDate: new Date().toISOString(),
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'Pending',
+      projectCategory: 'Minor Project',
+      scopeCategory: 'Routine',
+      documents: [],
+      updates: [],
+      files: [],
+      progressPercentage: 0,
+    };
+    setProjectForForm(newProjectDefaults);
     setIsNewProjectMode(true);
     setIsProjectFormModalOpen(true);
   }, [property]);
@@ -166,7 +296,7 @@ function PropertyDetailsContent() {
     }
   }, [isDataInitialized, propertyId, router, isProjectModalOpen, isProjectFormModalOpen, isDeleteAlertOpen, isEditPropertyModalOpen, property, isAdmin, handleOpenNewProjectForm]);
 
-   const handleNoteAddedToProject = useCallback((projectId: string, newUpdate: ProjectUpdate) => {
+  const handleNoteAddedToProject = useCallback((projectId: string, newUpdate: ProjectUpdate) => {
     let updatedModalProject: Project | undefined;
     setPropertyProjects(prevPropertyProjects => {
       const newPropertyProjectsList = prevPropertyProjects.map(p => {
@@ -178,11 +308,7 @@ function PropertyDetailsContent() {
       });
       return newPropertyProjectsList;
     });
-    const globalIndex = initialProjectsData.findIndex(p => p.id === projectId);
-    if (globalIndex !== -1) {
-      const projectInGlobal = initialProjectsData[globalIndex];
-      initialProjectsData[globalIndex] = { ...projectInGlobal, updates: [...projectInGlobal.updates, newUpdate] };
-    }
+    
     if (selectedProjectForModal && selectedProjectForModal.id === projectId && updatedModalProject) {
       setSelectedProjectForModal(updatedModalProject);
     }
@@ -201,14 +327,15 @@ function PropertyDetailsContent() {
 
   const handleSaveProjectForm = useCallback((savedProject: Project) => {
     if (isNewProjectMode) {
-      setPropertyProjects(prevProjects => [savedProject, ...prevProjects]);
-      initialProjectsData.unshift(savedProject);
-      toast({ title: "Project Added", description: `${savedProject.name} has been successfully added. (Client-side only)` });
+      const newProject = {
+        ...savedProject,
+        id: savedProject.id || `P${Date.now().toString().slice(-4)}`,
+      };
+      setPropertyProjects(prevProjects => [newProject, ...prevProjects]);
+      toast({ title: "Project Added", description: `${savedProject.name} has been successfully added. (Local state only)` });
     } else {
       setPropertyProjects(prevProjects => prevProjects.map(p => (p.id === savedProject.id ? savedProject : p)));
-      const globalProjectIndex = initialProjectsData.findIndex(p => p.id === savedProject.id);
-      if (globalProjectIndex !== -1) { initialProjectsData[globalProjectIndex] = savedProject; }
-      toast({ title: "Project Updated", description: `${savedProject.name} has been successfully updated. (Client-side only)` });
+      toast({ title: "Project Updated", description: `${savedProject.name} has been successfully updated. (Local state only)` });
     }
     setIsProjectFormModalOpen(false);
     setProjectForForm(null);
@@ -222,9 +349,7 @@ function PropertyDetailsContent() {
   const confirmDeleteProject = useCallback(() => {
     if (projectToDelete) {
       setPropertyProjects(prevProjects => prevProjects.filter(p => p.id !== projectToDelete.id));
-      const globalProjectIndex = initialProjectsData.findIndex(p => p.id === projectToDelete.id);
-      if (globalProjectIndex !== -1) { initialProjectsData.splice(globalProjectIndex, 1); }
-      toast({ title: "Project Deleted", description: `"${projectToDelete.name}" has been deleted. (Client-side only)`, variant: "destructive" });
+      toast({ title: "Project Deleted", description: `"${projectToDelete.name}" has been deleted. (Local state only)`, variant: "destructive" });
     }
     setIsDeleteAlertOpen(false);
     setProjectToDelete(null);
@@ -234,75 +359,14 @@ function PropertyDetailsContent() {
     if (property) { setIsEditPropertyModalOpen(true); }
   }, [property]);
 
-  const getAiHintFromUrl = useCallback((url: string | undefined, currentHint: string | undefined): string => {
-    if (!url || url.startsWith('https://placehold.co')) { return currentHint || 'property detail image'; }
-    try {
- if (url.startsWith('https://firebasestorage.googleapis.com/') || url.includes('.appspot.com/')) {
- return 'firebase storage image'; }
-      const hostname = new URL(url).hostname;
-      if (hostname.includes('unsplash')) return 'unsplash image';
-      if (hostname.includes('pexels')) return 'pexels image';
-      return 'external image';
-    } catch { return 'property image'; }
-  }, []);
-
-  const parseCommaSeparatedString = useCallback((input?: string): string[] => {
-    if (!input || typeof input !== 'string') return [];
-    return input.split(',').map(s => s.trim()).filter(s => s.length > 0);
-  }, []);
-
-  const handleSavePropertyForm = useCallback((updatedPropertyData: PropertyFormData) => {
+  const handleSavePropertyForm = useCallback((updatedPropertyData: any) => {
     if (!property) return;
-    const newTotalParking = (updatedPropertyData.generalParking || 0) + (updatedPropertyData.adaParking || 0) + (updatedPropertyData.evParking || 0) + (updatedPropertyData.cityStaffParking || 0) + (updatedPropertyData.lifeguardParking || 0) + (updatedPropertyData.otherSpaces || 0);
-    const newTotalLighting = (updatedPropertyData.smallLights || 0) + (updatedPropertyData.largeLights || 0);
-    const newTotalSignage = (updatedPropertyData.trafficRegulatorySigns || 0) + (updatedPropertyData.parkingInfoSigns || 0) + (updatedPropertyData.paymentSigns || 0) + (updatedPropertyData.wayfindingSigns || 0) + (updatedPropertyData.trafficDirectionSigns || 0) + (updatedPropertyData.otherSignage || 0);
-
-    const updatedProperty: Property = {
-      ...property, 
-      name: updatedPropertyData.name,
-      address: updatedPropertyData.address,
-      description: updatedPropertyData.description,
-      features: updatedPropertyData.features || [],
-      imageUrl: updatedPropertyData.imageUrl?.trim() || 'https://placehold.co/600x400.png',
-      aiHint: getAiHintFromUrl(updatedPropertyData.imageUrl, property.aiHint),
-      generalParking: updatedPropertyData.generalParking || 0,
-      adaParking: updatedPropertyData.adaParking || 0,
-      evParking: updatedPropertyData.evParking || 0,
-      cityStaffParking: updatedPropertyData.cityStaffParking || 0,
-      lifeguardParking: updatedPropertyData.lifeguardParking || 0,
-      otherSpaces: updatedPropertyData.otherSpaces || 0,
-      totalParking: newTotalParking,
-      smallLights: updatedPropertyData.smallLights || 0,
-      largeLights: updatedPropertyData.largeLights || 0,
-      totalLighting: newTotalLighting,
-      trafficRegulatorySigns: updatedPropertyData.trafficRegulatorySigns || 0,
-      parkingInfoSigns: updatedPropertyData.parkingInfoSigns || 0,
-      paymentSigns: updatedPropertyData.paymentSigns || 0,
-      wayfindingSigns: updatedPropertyData.wayfindingSigns || 0,
-      trafficDirectionSigns: updatedPropertyData.trafficDirectionSigns || 0,
-      otherSignage: updatedPropertyData.otherSignage || 0,
-      totalSignage: newTotalSignage,
-      securityFeatures: parseCommaSeparatedString(updatedPropertyData.securityFeaturesInput),
-      treesCount: updatedPropertyData.treesCount || 0,
-      trashCansCount: updatedPropertyData.trashCansCount || 0,
-      elevatorsCount: updatedPropertyData.elevatorsCount || 0,
-      stairsCount: updatedPropertyData.stairsCount || 0,
-      carStopsCount: updatedPropertyData.carStopsCount || 0,
-      bikeFacilities: parseCommaSeparatedString(updatedPropertyData.bikeFacilitiesInput),
-      surfaceCondition: updatedPropertyData.surfaceCondition || 'N/A',
-      surfaceType: updatedPropertyData.surfaceType || 'N/A',
-      clearanceRequirements: updatedPropertyData.clearanceRequirements || 'N/A',
-      entryPoints: updatedPropertyData.entryPoints || 0,
-      exitPoints: updatedPropertyData.exitPoints || 0,
-      paymentSystems: parseCommaSeparatedString(updatedPropertyData.paymentSystemsInput),
-      totalMeters: updatedPropertyData.totalMeters || 0,
-    };
-    setProperty(updatedProperty);
-    const globalIndex = initialPropertiesData.findIndex(p => p.id === updatedProperty.id);
-    if (globalIndex !== -1) { initialPropertiesData[globalIndex] = updatedProperty; }
-    toast({ title: "Property Updated", description: `${updatedProperty.name} has been successfully updated. (Client-side only)` });
+    
+    // For demo purposes, just update local state
+    setProperty(updatedPropertyData);
+    toast({ title: "Property Updated", description: `Property has been successfully updated. (Local state only)` });
     setIsEditPropertyModalOpen(false);
-  }, [property, toast, getAiHintFromUrl, parseCommaSeparatedString]);
+  }, [property, toast]);
 
   if (!isDataInitialized) {
     return (
@@ -332,6 +396,7 @@ function PropertyDetailsContent() {
     );
   }
 
+  const displayData = getPropertyDisplayData(property);
   const iconPropsSmall = { className: "h-4 w-4 mr-2 text-accent" };
 
   return (
@@ -350,30 +415,30 @@ function PropertyDetailsContent() {
               <CardHeader className="p-0">
                 <div className="relative h-60 w-full">
                   <Image
-                    src={property.imageUrl?.trim() || 'https://placehold.co/600x400.png'}
-                    alt={property.name}
+                    src={displayData.imageUrl || 'https://placehold.co/600x400.png'}
+                    alt={displayData.name || 'Property'}
                     layout="fill"
                     objectFit="cover"
                     className="rounded-t-lg"
-                    data-ai-hint={property.aiHint || 'property detail image'}
+                    data-ai-hint="property detail image"
                   />
                 </div>
                 <div className="p-6">
-                  <CardTitle className="font-headline text-5xl mb-2 text-foreground">{property.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground mb-3">{property.address}</p>
+                  <CardTitle className="font-headline text-5xl mb-2 text-foreground">{displayData.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground mb-3">{displayData.address}</p>
                 </div>
               </CardHeader>
               <CardContent className="p-6 pt-0">
                 <h4 className="font-semibold text-md text-foreground mb-2 flex items-center">
                   <Info {...iconPropsSmall} /> Description
                 </h4>
-                <p className="text-sm text-muted-foreground mb-4">{property.description}</p>
+                <p className="text-sm text-muted-foreground mb-4">{displayData.description}</p>
                 <h4 className="font-semibold text-md text-foreground mb-3 flex items-center">
                   <Award {...iconPropsSmall} /> Property Features
                 </h4>
-                {property.features && property.features.length > 0 ? (
+                {displayData.features && displayData.features.length > 0 ? (
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {property.features.map(feature => (
+                    {displayData.features.map(feature => (
                       <Badge key={feature} variant={featureBadgeVariants[feature] || 'outline'} className="text-xs">
                         {getFeatureIcon(feature)} {feature}
                       </Badge>
@@ -382,18 +447,14 @@ function PropertyDetailsContent() {
                 ) : (<p className="text-sm text-muted-foreground mb-4">No specific features listed.</p>)}
                 <Separator className="my-4" />
                 <Tabs defaultValue="parking_capacity" className="w-full">
-                <TabsList className="grid w-full grid-cols-5 gap-4 mb-4">
+                <TabsList className="grid w-full grid-cols-3 gap-4 mb-4">
                     <TabsTrigger value="parking_capacity" aria-label="Parking Capacity"><Car className={cn("h-5 w-5", "text-[hsl(var(--pastel-blue-fg))]")} /></TabsTrigger>
                     <TabsTrigger value="lighting" aria-label="Lighting Details"><Lightbulb className={cn("h-5 w-5", "text-[hsl(var(--pastel-yellow-fg))]")} /></TabsTrigger>
-                    <TabsTrigger value="signage" aria-label="Signage Details"><Signpost className={cn("h-5 w-5", "text-[hsl(var(--pastel-green-fg))]")} /></TabsTrigger>
-                    <TabsTrigger value="infrastructure" aria-label="Infrastructure & Amenities"><Building2 className={cn("h-5 w-5", "text-[hsl(var(--pastel-purple-fg))]")} /></TabsTrigger>
                     <TabsTrigger value="operational" aria-label="Operational Details"><Gauge className={cn("h-5 w-5", "text-[hsl(var(--pastel-pink-fg))]")} /></TabsTrigger>
                 </TabsList>
-                <TabsContent value="parking_capacity"><div><h3 className="text-xl font-semibold flex items-center mb-3"><Car className={cn("h-5 w-5 mr-3", "text-[hsl(var(--pastel-blue-fg))]")} /> Parking Capacity</h3><div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm"><DetailItem label="Total Spaces" value={property.totalParking} /><DetailItem label="General" value={property.generalParking} /><DetailItem label="ADA" value={property.adaParking} /><DetailItem label="EV" value={property.evParking} /><DetailItem label="City Staff" value={property.cityStaffParking} /><DetailItem label="Lifeguard" value={property.lifeguardParking} /><DetailItem label="Other" value={property.otherSpaces} /></div></div></TabsContent>
-                <TabsContent value="lighting"><div><h3 className="text-xl font-semibold flex items-center mb-3"><Lightbulb className={cn("h-5 w-5 mr-3", "text-[hsl(var(--pastel-yellow-fg))]")} /> Lighting</h3><div className="space-y-1 text-sm"><DetailItem label="Small Lights" value={property.smallLights} /><DetailItem label="Large Lights" value={property.largeLights} /><DetailItem label="Total Lighting Units" value={property.totalLighting} /></div></div></TabsContent>
-                <TabsContent value="signage"><div><h3 className="text-xl font-semibold flex items-center mb-3"><Signpost className={cn("h-5 w-5 mr-3", "text-[hsl(var(--pastel-green-fg))]")} /> Signage</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-sm"><DetailItem label="Traffic Regulatory" value={property.trafficRegulatorySigns} /><DetailItem label="Parking Info" value={property.parkingInfoSigns} /><DetailItem label="Payment System" value={property.paymentSigns} /><DetailItem label="Wayfinding" value={property.wayfindingSigns} /><DetailItem label="Traffic Direction" value={property.trafficDirectionSigns} /><DetailItem label="Other" value={property.otherSignage} /><DetailItem label="Total Signage Units" value={property.totalSignage} /></div></div></TabsContent>
-                <TabsContent value="infrastructure"><div><h3 className="text-xl font-semibold flex items-center mb-3"><Building2 className={cn("h-5 w-5 mr-3", "text-[hsl(var(--pastel-purple-fg))]")} /> Infrastructure & Amenities</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm"><DetailItem label="Security Features" value={property.securityFeatures} icon={<Shield {...iconPropsSmall}/>} /><DetailItem label="Trees" value={property.treesCount} icon={<TreePine {...iconPropsSmall}/>} /><DetailItem label="Trash Cans" value={property.trashCansCount} icon={<Recycle {...iconPropsSmall}/>} /><DetailItem label="Elevators" value={property.elevatorsCount} icon={<Sigma {...iconPropsSmall} style={{transform: 'rotate(90deg)'}}/>} /><DetailItem label="Stairs" value={property.stairsCount} /><DetailItem label="Car Stops" value={property.carStopsCount} /><DetailItem label="Bike Facilities" value={property.bikeFacilities} icon={<Bike {...iconPropsSmall}/>}/></div></div></TabsContent>
-                <TabsContent value="operational"><div><h3 className="text-xl font-semibold flex items-center mb-3"><Gauge className={cn("h-5 w-5 mr-3", "text-[hsl(var(--pastel-pink-fg))]")} /> Operational Details</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm"><DetailItem label="Surface Condition" value={property.surfaceCondition} icon={<AlertTriangle {...iconPropsSmall}/>}/><DetailItem label="Surface Type" value={property.surfaceType} icon={<ToyBrick {...iconPropsSmall}/>}/><DetailItem label="Clearance Requirements" value={property.clearanceRequirements} icon={<Ruler {...iconPropsSmall}/>}/><DetailItem label="Entry Points" value={property.entryPoints} icon={<LogIn {...iconPropsSmall}/>}/><DetailItem label="Exit Points" value={property.exitPoints} icon={<LogOut {...iconPropsSmall}/>}/><DetailItem label="Payment Systems" value={property.paymentSystems} icon={<CreditCard {...iconPropsSmall}/>}/><DetailItem label="Total Meters" value={property.totalMeters} /></div></div></TabsContent>
+                <TabsContent value="parking_capacity"><div><h3 className="text-xl font-semibold flex items-center mb-3"><Car className={cn("h-5 w-5 mr-3", "text-[hsl(var(--pastel-blue-fg))]")} /> Parking Capacity</h3><div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm"><DetailItem label="Total Spaces" value={displayData.totalParking} /><DetailItem label="General" value={displayData.generalParking} /><DetailItem label="ADA" value={displayData.adaParking} /><DetailItem label="EV" value={displayData.evParking} /><DetailItem label="City Staff" value={displayData.cityStaffParking} /><DetailItem label="Lifeguard" value={displayData.lifeguardParking} /><DetailItem label="Other" value={displayData.otherSpaces} /></div></div></TabsContent>
+                <TabsContent value="lighting"><div><h3 className="text-xl font-semibold flex items-center mb-3"><Lightbulb className={cn("h-5 w-5 mr-3", "text-[hsl(var(--pastel-yellow-fg))]")} /> Lighting</h3><div className="space-y-1 text-sm"><DetailItem label="Small Lights" value={displayData.smallLights} /><DetailItem label="Large Lights" value={displayData.largeLights} /><DetailItem label="Total Lighting Units" value={displayData.totalLighting} /></div></div></TabsContent>
+                <TabsContent value="operational"><div><h3 className="text-xl font-semibold flex items-center mb-3"><Gauge className={cn("h-5 w-5 mr-3", "text-[hsl(var(--pastel-pink-fg))]")} /> Operational Details</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm"><DetailItem label="Surface Condition" value={displayData.surfaceCondition} icon={<AlertTriangle {...iconPropsSmall}/>}/><DetailItem label="Surface Type" value={displayData.surfaceType} icon={<ToyBrick {...iconPropsSmall}/>}/><DetailItem label="Clearance Requirements" value={displayData.clearanceRequirements} icon={<Ruler {...iconPropsSmall}/>}/><DetailItem label="Entry Points" value={displayData.entryPoints} icon={<LogIn {...iconPropsSmall}/>}/><DetailItem label="Exit Points" value={displayData.exitPoints} icon={<LogOut {...iconPropsSmall}/>}/><DetailItem label="Payment Systems" value={displayData.paymentSystems} icon={<CreditCard {...iconPropsSmall}/>}/><DetailItem label="Total Meters" value={displayData.totalMeters} /></div></div></TabsContent>
                 </Tabs>
                 <Separator className="my-4" />
                 {isAdmin && (
@@ -409,7 +470,7 @@ function PropertyDetailsContent() {
             <Card className="shadow-lg">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                    <CardTitle className="font-headline text-4xl text-foreground">Projects for {property.name}</CardTitle>
+                    <CardTitle className="font-headline text-4xl text-foreground">Projects for {displayData.name}</CardTitle>
                     <CardDescription>Overview of all projects related to this parking location.</CardDescription>
                 </div>
                 {isAdmin && (
@@ -442,20 +503,16 @@ function PropertyDetailsContent() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <div className="flex flex-wrap gap-1">
-                                {(project.scopeCategory && project.scopeCategory.length > 0) ? (
-                                  project.scopeCategory.map(scope => (
-                                    <Badge key={scope} variant={scopeCategoryBadgeVariants[scope] || 'secondary'} className="text-xs whitespace-nowrap">
-                                      {scope}
-                                    </Badge>
-                                  ))
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">N/A</span>
-                                )}
-                              </div>
+                              {project.scopeCategory ? (
+                                <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                                  {project.scopeCategory}
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">N/A</span>
+                              )}
                             </TableCell>
                             <TableCell className="hidden md:table-cell">{new Date(project.startDate).toLocaleDateString()}</TableCell>
-                            <TableCell>{new Date(project.endDate).toLocaleDateString()}</TableCell>
+                            <TableCell>{project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}</TableCell>
                             <TableCell className="text-right space-x-1">
                               <Button variant="link" size="icon" className="text-accent hover:underline h-8 w-8 p-0" onClick={() => handleViewProjectDetails(project)} aria-label={`View project ${project.name}`}>
                                  <Eye className="h-4 w-4" />
@@ -498,7 +555,7 @@ function PropertyDetailsContent() {
 
       <ProjectDetailsModal
         project={selectedProjectForModal}
-        propertyName={property.name}
+        propertyName={displayData.name || 'Unknown Property'}
         isOpen={isProjectModalOpen}
         onClose={() => { setIsProjectModalOpen(false); setSelectedProjectForModal(null); }}
         onNoteAdded={handleNoteAddedToProject}
@@ -539,6 +596,3 @@ export default function PropertyDetailsPage() {
     </ProtectedRoute>
   );
 }
-
-
-    

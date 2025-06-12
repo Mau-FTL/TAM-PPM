@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
@@ -7,16 +6,18 @@ import Link from 'next/link';
 import AppHeader from '@/components/dashboard/AppHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { properties as initialPropertiesData } from '@/data/properties';
-import { projects as initialProjectsData } from '@/data/projects';
-import type { Property, Project } from '@/types';
 import { Loader2, Briefcase, Clock, MapPin, CheckCircle, ListChecks, Settings, FileText, LayoutDashboard, PlusCircle, ParkingSquare, BarChart3, Eye } from 'lucide-react';
 import PropertyCard from '@/components/dashboard/PropertyCard'; 
 import { useAuth, ProtectedRoute } from '@/context/AuthContext';
+import { useToast } from "@/hooks/use-toast";
+
+// Import the new data service
+import { dataService, type Property, type Project } from '@/lib/dataService';
 
 function DashboardContent() {
   const router = useRouter();
   const { user, isAdmin, isLoadingAuth } = useAuth();
+  const { toast } = useToast();
   const [isDataInitialized, setIsDataInitialized] = useState(false);
   
   const [properties, setProperties] = useState<Property[]>([]);
@@ -24,15 +25,50 @@ function DashboardContent() {
   const [activeProjectsCount, setActiveProjectsCount] = useState(0);
 
   useEffect(() => {
-    // Data initialization logic
-    // Simulate data fetching now that auth is handled by context
-    setTimeout(() => {
-      setProperties(initialPropertiesData);
-      setProjects(initialProjectsData);
-      setActiveProjectsCount(initialProjectsData.filter(p => p.status === 'In Progress').length);
-      setIsDataInitialized(true);
-    }, 100); // Shorter delay as auth is separate
-  }, []);
+    const fetchDataFromSampleData = () => {
+      if (!user) { 
+        setIsDataInitialized(true);
+        return;
+      }
+
+      try {
+        console.log("Loading dashboard data from sampleData...");
+        
+        // Load data from dataService
+        const fetchedProperties = dataService.getProperties();
+        const fetchedProjects = dataService.getProjects();
+        
+        setProperties(fetchedProperties);
+        setProjects(fetchedProjects);
+        setActiveProjectsCount(fetchedProjects.filter(p => p.status === 'In Progress').length);
+        
+        console.log("Loaded dashboard data:", {
+          properties: fetchedProperties.length,
+          projects: fetchedProjects.length,
+          activeProjects: fetchedProjects.filter(p => p.status === 'In Progress').length
+        });
+        
+        toast({
+          title: "Dashboard Loaded",
+          description: `Loaded ${fetchedProjects.length} projects and ${fetchedProperties.length} properties from sample data.`,
+          variant: "default"
+        });
+      } catch (error: any) {
+        console.error("Error loading dashboard data:", error);
+        toast({
+          title: "Error Loading Dashboard",
+          description: error.message || "Could not load dashboard data.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsDataInitialized(true);
+      }
+    };
+
+    if (!isLoadingAuth && user) {
+      fetchDataFromSampleData();
+    }
+  }, [isLoadingAuth, user, toast]);
 
   const handleProjectDataChange = (propertyId: string, updatedProjectsForProperty: Project[]) => {
     setProjects(prevProjects => {
@@ -52,7 +88,7 @@ function DashboardContent() {
   
   const upcomingCompletions = projects
     .filter(p => p.status === 'In Progress' || p.status === 'Pending')
-    .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
+    .sort((a, b) => new Date(a.endDate || '').getTime() - new Date(b.endDate || '').getTime())
     .slice(0, 3);
 
   const recentProjectUpdates = projects 
@@ -131,7 +167,7 @@ function DashboardContent() {
                             Property: {property?.name || 'N/A'}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Due: {new Date(project.endDate).toLocaleDateString()}
+                            Due: {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}
                           </p>
                           {property && (
                             <Link href={`/dashboard/properties/${property.id}#project-${project.id}`} passHref>

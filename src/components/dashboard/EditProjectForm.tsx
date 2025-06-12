@@ -15,6 +15,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDateForInput } from '@/lib/utils';
 import { z } from 'zod';
 
+// Import the data service
+import { dataService } from '@/lib/dataService';
+
 // Simplified project schema matching sampleData structure
 const ProjectFormSchema = z.object({
   name: z.string().min(1, "Project name is required"),
@@ -64,6 +67,20 @@ const SCOPE_CATEGORY_OPTIONS = [
 ];
 
 export default function ProjectForm({ project, isNewProject, properties, onSave, onCancel }: ProjectFormProps) {
+  const [availableProperties, setAvailableProperties] = useState(properties || []);
+
+  // Load properties from dataService if not provided
+  useEffect(() => {
+    if (!properties || properties.length === 0) {
+      try {
+        const propertiesFromService = dataService.getProperties();
+        setAvailableProperties(propertiesFromService);
+      } catch (error) {
+        console.error('Error loading properties:', error);
+      }
+    }
+  }, [properties]);
+
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(ProjectFormSchema),
     defaultValues: {
@@ -113,7 +130,7 @@ export default function ProjectForm({ project, isNewProject, properties, onSave,
           <CardContent className="space-y-4">
             
             {/* Property Selection - Single select dropdown (required) */}
-            {isNewProject && properties && (
+            {isNewProject && (
               <FormField
                 control={form.control}
                 name="propertyId"
@@ -127,7 +144,7 @@ export default function ProjectForm({ project, isNewProject, properties, onSave,
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {properties.map((property) => (
+                        {availableProperties.map((property) => (
                           <SelectItem key={property.id} value={property.id}>
                             {property.name || property.details?.name}
                           </SelectItem>
@@ -179,3 +196,120 @@ export default function ProjectForm({ project, isNewProject, properties, onSave,
                 name="startDate"
                 render={({ field }) => (
                   <FormItem>
+                    <FormLabel>Start Date *</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="endDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End Date *</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Status - Single select dropdown (required) */}
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status *</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {PROJECT_STATUS_OPTIONS.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Project Category - Single select dropdown (required) */}
+            <FormField
+              control={form.control}
+              name="projectCategory"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Project Category *</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {PROJECT_CATEGORY_OPTIONS.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Scope Category - Single select dropdown (required) */}
+            <FormField
+              control={form.control}
+              name="scopeCategory"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Scope Category *</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select scope category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {SCOPE_CATEGORY_OPTIONS.map((scope) => (
+                        <SelectItem key={scope} value={scope}>
+                          {scope}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Form Actions */}
+        <div className="flex justify-end space-x-3 pt-4 border-t">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="default">
+            {isNewProject ? 'Create Project' : 'Save Changes'}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
