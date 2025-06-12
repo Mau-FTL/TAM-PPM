@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
@@ -10,8 +9,7 @@ import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { properties as initialPropertiesData } from '@/data/properties';
-import type { Property, Project, ProjectUpdate, ProjectScopeCategory, Document, Note } from '@/types';
+import type { Property, Project, ProjectUpdate, ProjectScopeCategory } from '@/types';
 import { NewProjectDefaultValues } from '@/types';
 import { Loader2, Search, Eye, ListChecks, ClipboardList, CheckCircle2, XCircle, Edit3, Trash2, PlusCircle, Tag } from 'lucide-react';
 import ProjectDetailsModal from '@/components/dashboard/ProjectDetailsModal';
@@ -19,11 +17,11 @@ import ProjectModal from '@/components/dashboard/EditProjectModal';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, ProtectedRoute } from '@/context/AuthContext';
 
-import { databaseService } from '@/lib/databaseService';
+// Import the new data service based on sampleData.ts
+import { dataService, type Note, type Document } from '@/lib/dataService';
+
 const getStatusBadgeVariant = (status: Project['status']): BadgeProps['variant'] => {
-  // This function is now deprecated. Use the statusColors map from ProjectInfo.tsx
-  // Keeping a default for safety, but the map should be the source of truth.
-   switch (status) {
+  switch (status) {
     case 'Completed': return "pastel-green";
     case 'In Progress': return "pastel-yellow";
     case 'Pending': return "pastel-blue";
@@ -45,14 +43,11 @@ const scopeCategoryBadgeVariants: Record<ProjectScopeCategory, BadgeProps['varia
   'Upgrade': 'pastel-yellow',
 };
 
-
-// Modify getStatusIcon function to reflect the status change from 'In Progress' to 'Pending'.
 const getStatusIcon = (status: Project['status']) => {
   const iconProps = { className: "mr-2 h-4 w-4" };
-  // Updated switch cases to use 'Pending' instead of 'In Progress' where applicable
   switch (status) {
-    case 'Pending': return <ClipboardList {...iconProps} />; // Updated from 'Planning' to 'Pending'
-    case 'In Progress': return <Loader2 className={`${iconProps.className} animate-spin`} />; // Keeping 'In Progress' icon
+    case 'Pending': return <ClipboardList {...iconProps} />;
+    case 'In Progress': return <Loader2 className={`${iconProps.className} animate-spin`} />;
     case 'Completed': return <CheckCircle2 {...iconProps} />;
     case 'On Hold': return <XCircle {...iconProps} />;
     case 'Cancelled': return <XCircle {...iconProps} />;
@@ -63,12 +58,12 @@ const getStatusIcon = (status: Project['status']) => {
 function AllProjectsContent() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, isAdmin, isLoadingAuth } = useAuth(); // Get admin status
+  const { user, isAdmin, isLoadingAuth } = useAuth();
   const [isDataInitialized, setIsDataInitialized] = useState(false);
 
   const [properties, setProperties] = useState<Property[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [selectedProjectForView, setSelectedProjectForView] = useState<Project | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -80,22 +75,39 @@ function AllProjectsContent() {
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
 
-
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDataFromSampleData = () => {
       try {
-        const fetchedProperties = await databaseService.getProperties();
-        const fetchedProjects = await databaseService.getProjects();
+        console.log("Loading data from sampleData...");
+        const fetchedProperties = dataService.getProperties();
+        const fetchedProjects = dataService.getProjects();
+        
         setProperties(fetchedProperties);
         setProjects(fetchedProjects);
+        
+        console.log("Loaded from sampleData:", {
+          properties: fetchedProperties.length,
+          projects: fetchedProjects.length
+        });
+        
+        toast({
+          title: "Data Loaded",
+          description: `Successfully loaded ${fetchedProjects.length} projects and ${fetchedProperties.length} properties from sample data.`,
+          variant: "default"
+        });
       } catch (error) {
-        console.error("Error fetching initial data:", error);
-        toast({ title: "Error", description: "Failed to load initial data.", variant: "destructive" });
+        console.error("Error loading data from sampleData:", error);
+        toast({ 
+          title: "Error", 
+          description: "Failed to load data from sample data.", 
+          variant: "destructive" 
+        });
       }
       setIsDataInitialized(true);
     };
-    fetchData();
-  }, []);
+    
+    fetchDataFromSampleData();
+  }, [toast]);
 
   const getPropertyName = useCallback((propertyId: string) => {
     const property = properties.find(p => p.id === propertyId);
@@ -118,36 +130,89 @@ function AllProjectsContent() {
     });
   }, [projects, searchTerm, getPropertyName]);
 
-  const handleNoteAddedToProject = async (projectId: string, newNote: Omit<Note, 'id' | 'createdAt'>) => {
+  const handleNoteAddedToProject = async (projectId: string, newNote: { content: string }) => {
     try {
-      const noteId = await databaseService.addNote({ ...newNote, createdAt: new Date().toISOString(), project: projectId });
-      const fetchedProjects = await databaseService.getProjects(); // Re-fetch projects to get the updated list with the new note
-      setProjects(fetchedProjects);
+      // In a real app, this would save to backend
+      // For now, just update local state
+      const newUpdate: ProjectUpdate = {
+        id: `note-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        text: newNote.content,
+      };
+
+      setProjects(prevProjects =>
+        prevProjects.map(p =>
+          p.id === projectId
+            ? { ...p, updates: [...p.updates, newUpdate] }
+            : p
+        )
+      );
+
       // Update the selected project in the view modal if it's the current one
       if (selectedProjectForView && selectedProjectForView.id === projectId) {
-          setSelectedProjectForView(fetchedProjects.find(p => p.id === projectId) || null);
+        setSelectedProjectForView(prev => prev ? {
+          ...prev,
+          updates: [...prev.updates, newUpdate]
+        } : null);
       }
+
+      toast({
+        title: "Note Added",
+        description: "Note has been added to the project.",
+        variant: "default"
+      });
     } catch (error) {
-        console.error("Error adding note to project:", error);
-        toast({ title: "Error", description: "Failed to add note.", variant: "destructive" });
+      console.error("Error adding note to project:", error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to add note.", 
+        variant: "destructive" 
+      });
     }
   };
 
-  const handleAddDocumentToProject = async (projectId: string, newDocument: Omit<Document, 'id' | 'uploadDate'>) => {
+  const handleAddDocumentToProject = async (projectId: string, newDocument: { name: string; fileUrl: string; description?: string }) => {
     try {
-        const documentId = await databaseService.addDocument({...newDocument, uploadDate: new Date().toISOString(), project: projectId});
-         const fetchedProjects = await databaseService.getProjects(); // Re-fetch projects to get the updated list with the new document
-        setProjects(fetchedProjects);
-         // Update the selected project in the view modal if it's the current one
-        if (selectedProjectForView && selectedProjectForView.id === projectId) {
-             setSelectedProjectForView(fetchedProjects.find(p => p.id === projectId) || null);
-        }
+      // In a real app, this would save to backend
+      // For now, just update local state
+      const newFile = {
+        id: `doc-${Date.now()}`,
+        name: newDocument.name,
+        type: 'document' as const,
+        uploadedAt: new Date().toISOString(),
+        url: newDocument.fileUrl,
+      };
+
+      setProjects(prevProjects =>
+        prevProjects.map(p =>
+          p.id === projectId
+            ? { ...p, files: [...p.files, newFile] }
+            : p
+        )
+      );
+
+      // Update the selected project in the view modal if it's the current one
+      if (selectedProjectForView && selectedProjectForView.id === projectId) {
+        setSelectedProjectForView(prev => prev ? {
+          ...prev,
+          files: [...prev.files, newFile]
+        } : null);
+      }
+
+      toast({
+        title: "Document Added",
+        description: "Document has been added to the project.",
+        variant: "default"
+      });
     } catch (error) {
-        console.error("Error adding document to project:", error);
-        toast({ title: "Error", description: "Failed to add document.", variant: "destructive" });
+      console.error("Error adding document to project:", error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to add document.", 
+        variant: "destructive" 
+      });
     }
   };
-
 
   const handleViewProject = (project: Project) => {
     setSelectedProjectForView(project);
@@ -167,52 +232,47 @@ function AllProjectsContent() {
   };
 
   const handleSaveProjectForm = async (savedProject: Project) => {
-    setProjects(prevProjects => {
-      if (isNewProjectMode) {
-        return [savedProject, ...prevProjects];
-      } else {
-        return prevProjects.map(p => p.id === savedProject.id ? savedProject : p);
-      }
-    });
-
     if (isNewProjectMode) {
-      try {
-        await databaseService.addProject(savedProject);
-        toast({ title: "Project Added", description: `${savedProject.name} has been successfully added.` });
-      } catch (error) {
-        console.error("Error adding project:", error);
-        toast({ title: "Error", description: `Failed to add project ${savedProject.name}.`, variant: "destructive" });
-      }
+      // Add new project to local state
+      const newProject = {
+        ...savedProject,
+        id: `proj-${Date.now()}`,
+        updates: [],
+        files: [],
+        progressPercentage: 0,
+      };
+      setProjects(prevProjects => [newProject, ...prevProjects]);
+      toast({ 
+        title: "Project Added", 
+        description: `${savedProject.name} has been successfully added.` 
+      });
     } else {
-      try {
-        await databaseService.updateProject(savedProject.id, savedProject);
-        toast({ title: "Project Updated", description: `${savedProject.name} has been successfully updated.` });
-      } catch (error) {
-        console.error("Error updating project:", error);
-        toast({ title: "Error", description: `Failed to update project ${savedProject.name}.`, variant: "destructive" });
-      }
+      // Update existing project in local state
+      setProjects(prevProjects => 
+        prevProjects.map(p => p.id === savedProject.id ? savedProject : p)
+      );
+      toast({ 
+        title: "Project Updated", 
+        description: `${savedProject.name} has been successfully updated.` 
+      });
     }
     setIsProjectFormModalOpen(false);
     setProjectForForm(null);
   };
 
-  const handleDeleteProjectClick = (project: Project) => { // Now accepts Project
+  const handleDeleteProjectClick = (project: Project) => {
     setProjectToDelete(project);
     setIsDeleteAlertOpen(true);
   };
 
-  const confirmDeleteProject = async () => { // Made async
+  const confirmDeleteProject = async () => {
     if (projectToDelete) {
       setProjects(prevProjects => prevProjects.filter(p => p.id !== projectToDelete.id));
-      try {
-        await databaseService.deleteProject(projectToDelete.id);
-        toast({ title: "Project Deleted", description: `"${projectToDelete.name}" has been deleted.`, variant: "destructive" });
-      } catch (error) {
-        console.error("Error deleting project:", error);
-        toast({ title: "Error", description: `Failed to delete project "${projectToDelete.name}".`, variant: "destructive" });
-        // Optionally revert the UI change if deletion fails
-        setProjects(prevProjects => [...prevProjects, projectToDelete]);
-      }
+      toast({ 
+        title: "Project Deleted", 
+        description: `"${projectToDelete.name}" has been deleted.`, 
+        variant: "destructive" 
+      });
     }
     setIsDeleteAlertOpen(false);
     setProjectToDelete(null);
@@ -284,7 +344,7 @@ function AllProjectsContent() {
                           <div className="flex flex-wrap gap-1">
                             {(project.scopeCategory && project.scopeCategory.length > 0) ? (
                               project.scopeCategory.map(scope => (
-                                <Badge key={scope} variant={scopeCategoryBadgeVariants[scope] || 'secondary'} className="text-xs whitespace-nowrap">
+                                <Badge key={scope} variant={scopeCategoryBadgeVariants[scope as ProjectScopeCategory] || 'secondary'} className="text-xs whitespace-nowrap">
                                   {scope}
                                 </Badge>
                               ))
@@ -293,22 +353,26 @@ function AllProjectsContent() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">{new Date(project.startDate).toLocaleDateString()}</TableCell>
-                        <TableCell>{new Date(project.endDate).toLocaleDateString()}</TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}
+                        </TableCell>
                         <TableCell className="text-right space-x-1">
-                           <Button variant="link" size="icon" className="text-accent hover:underline h-8 w-8 p-0" onClick={() => handleViewProject(project)} aria-label={`View project ${project.name}`}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {isAdmin && (
-                              <>
-                                <Button variant="link" size="icon" className="text-muted-foreground hover:text-accent hover:underline h-8 w-8 p-0" onClick={() => handleOpenEditProjectForm(project)} aria-label={`Edit project ${project.name}`}>
-                                  <Edit3 className="h-4 w-4" />
-                                </Button>
-                                <Button variant="link" size="icon" className="text-destructive hover:underline h-8 w-8 p-0" onClick={() => handleDeleteProjectClick(project)} aria-label={`Delete project ${project.name}`}>
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
+                          <Button variant="link" size="icon" className="text-accent hover:underline h-8 w-8 p-0" onClick={() => handleViewProject(project)} aria-label={`View project ${project.name}`}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {isAdmin && (
+                            <>
+                              <Button variant="link" size="icon" className="text-muted-foreground hover:text-accent hover:underline h-8 w-8 p-0" onClick={() => handleOpenEditProjectForm(project)} aria-label={`Edit project ${project.name}`}>
+                                <Edit3 className="h-4 w-4" />
+                              </Button>
+                              <Button variant="link" size="icon" className="text-destructive hover:underline h-8 w-8 p-0" onClick={() => handleDeleteProjectClick(project)} aria-label={`Delete project ${project.name}`}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -325,9 +389,9 @@ function AllProjectsContent() {
               {searchTerm ? "No projects match your search criteria." : "There are currently no projects to display."}
             </p>
             {isAdmin && (
-             <Button onClick={handleOpenNewProjectForm} variant="outline" className="mt-4">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New Project
-            </Button>
+              <Button onClick={handleOpenNewProjectForm} variant="outline" className="mt-4">
+                <PlusCircle className="mr-2 h-4 w-4" /> Add New Project
+              </Button>
             )}
           </div>
         )}
@@ -341,9 +405,9 @@ function AllProjectsContent() {
         propertyName={selectedProjectForView ? getPropertyName(selectedProjectForView.propertyId) : ''}
         isOpen={isViewModalOpen}
         onClose={() => { setIsViewModalOpen(false); setSelectedProjectForView(null); }}
-        onNoteAdded={handleNoteAddedToProject}
-        onDocumentAdded={handleAddDocumentToProject} // Pass the new handler
+        onNoteAdded={(projectId, newUpdate) => handleNoteAddedToProject(projectId, { content: newUpdate.text })}
       />
+      
       {isProjectFormModalOpen && isAdmin && (
         <ProjectModal
           project={projectForForm || undefined}
@@ -354,23 +418,24 @@ function AllProjectsContent() {
           onSave={handleSaveProjectForm}
         />
       )}
+      
       {isAdmin && (
         <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-            <AlertDialogContent>
+          <AlertDialogContent>
             <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
                 This action cannot be undone. This will permanently delete the project
                 "{projectToDelete?.name}" from your current session.
-                </AlertDialogDescription>
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setIsDeleteAlertOpen(false)}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmDeleteProject} className={buttonVariants({ variant: "destructive" })}>
+              <AlertDialogCancel onClick={() => setIsDeleteAlertOpen(false)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteProject} className={buttonVariants({ variant: "destructive" })}>
                 Delete
-                </AlertDialogAction>
+              </AlertDialogAction>
             </AlertDialogFooter>
-            </AlertDialogContent>
+          </AlertDialogContent>
         </AlertDialog>
       )}
     </div>
@@ -384,5 +449,3 @@ export default function AllProjectsPage() {
     </ProtectedRoute>
   );
 }
-
-    

@@ -1,21 +1,12 @@
-
 "use client";
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
-
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  type UserCredential,
-  type Auth
-} from 'firebase/auth';
-import { app } from '@/lib/firebaseInit'; 
+import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 interface PasswordGateProps {
   onSuccess: () => void;
@@ -29,87 +20,49 @@ const backgroundTextLines = [
   "MANAGEMENT",
 ];
 
-// Initialize auth only if app is available
-const auth: Auth | undefined = app ? getAuth(app) : undefined;
-
 export default function PasswordGate({ onSuccess }: PasswordGateProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(true); 
-
-  useEffect(() => {
-    if (!auth) {
-      setError("Firebase is not properly configured. Login is unavailable.");
-      setIsLoading(false);
-      return;
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        onSuccess();
-      } else {
-        setIsLoading(false);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [onSuccess]);
-
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const { login } = useAuth();
 
   const handleEmailPasswordLogin = async (event: FormEvent) => {
     event.preventDefault();
-    if (!auth) {
-      setError("Firebase is not configured. Cannot log in.");
-      return;
-    }
     setError('');
     setIsLoading(true);
+    
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle the onSuccess call
+      const success = await login(email, password);
+      if (success) {
+        onSuccess();
+      } else {
+        setError('Invalid email or password. Please check your credentials and try again.');
+      }
     } catch (err: any) {
-      setError(`Login failed: ${err.message}`);
+      setError('Login failed. Please try again.');
+      console.error('Login error:', err);
+    } finally {
       setIsLoading(false);
     }
   };
-  
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
-        <Loader2 className="h-12 w-12 animate-spin text-accent mb-4" />
-        <p className="text-lg font-medium">Processing authentication...</p>
-        {error && <p className="text-sm text-destructive mt-2">{error}</p>}
-      </div>
-    );
-  }
 
-  if (!auth && !isLoading) { 
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
-        <Card className="w-full max-w-md shadow-xl relative z-10 bg-transparent backdrop-blur-[20px] border border-white/30">
-          <CardHeader className="text-center">
-            <CardTitle className="font-headline text-3xl mt-4 text-black dark:text-white">Configuration Error</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-destructive text-center">
-              Firebase is not properly configured. Login is unavailable. Please contact support or check the environment setup.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
+  const handleDemoLogin = (demoEmail: string) => {
+    setEmail(demoEmail);
+    setPassword('demo123');
+    setError('');
+  };
 
   return (
     <div className="relative flex min-h-screen items-end sm:items-center justify-center bg-background p-4 pb-12 sm:pb-4 overflow-hidden">
+      {/* Background Text */}
       <div className="absolute inset-0 flex flex-col items-start justify-center px-8 overflow-hidden pointer-events-none -z-1">
         <div className="flex flex-col items-start text-left">
           {backgroundTextLines.map((line, lineIndex) => (
             <p
               key={`line-${lineIndex}`}
-              className="text-[12rem] font-black text-black dark:text-white whitespace-nowrap select-none leading-none tracking-tighter uppercase font-headline"
+              className="text-[12rem] font-black text-black dark:text-white whitespace-nowrap select-none leading-none tracking-tighter uppercase font-headline opacity-5"
             >
               {line}
             </p>
@@ -117,52 +70,129 @@ export default function PasswordGate({ onSuccess }: PasswordGateProps) {
         </div>
       </div>
 
-      <Card className="w-full max-w-md shadow-xl relative z-10 bg-transparent backdrop-blur-[20px] border border-white/30">
+      {/* Login Card */}
+      <Card className="w-full max-w-md shadow-xl relative z-10 bg-card/95 backdrop-blur-sm border border-border">
         <CardHeader className="text-center">
-          <CardTitle className="font-headline text-3xl mt-4 text-black dark:text-white">TAM PPM</CardTitle>
-          <CardDescription className="text-black dark:text-white">
-            {/* Text "Login with your email and password." removed */}
+          <CardTitle className="font-headline text-3xl mt-4 text-foreground">TAM PPM</CardTitle>
+          <CardDescription className="text-muted-foreground">
+            Transportation & Mobility Project Portfolio Management
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {error && <p className="text-sm text-destructive mb-4">{error}</p>}
-          <form onSubmit={handleEmailPasswordLogin} className="space-y-6">
+          {error && (
+            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+              <p className="text-sm text-destructive font-medium">{error}</p>
+            </div>
+          )}
+          
+          <form onSubmit={handleEmailPasswordLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email-password">Email</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="email-password"
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
                 required
                 className="text-base"
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                required
-                className="text-base"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter password"
+                  required
+                  className="text-base pr-10"
+                  disabled={isLoading}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isLoading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
             </div>
-            <Button type="submit" className="w-full bg-black text-white hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-neutral-200" disabled={isLoading || !auth}>
-               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Login'}
+            <Button 
+              type="submit" 
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90" 
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing In...
+                </>
+              ) : (
+                'Sign In'
+              )}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex-col space-y-2">
-          <p className="text-xs text-black dark:text-white text-center w-full">
-            This application is for authorized users only.
-          </p>
+        <CardFooter className="flex-col space-y-4">
+          <div className="w-full">
+            <p className="text-xs text-muted-foreground text-center mb-3">
+              Demo Users - Click to auto-fill:
+            </p>
+            <div className="grid gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDemoLogin('mbaquero@fortlauderdale.gov')}
+                disabled={isLoading}
+                className="text-xs justify-start"
+              >
+                <span className="font-semibold text-green-600 mr-2">Admin:</span>
+                mbaquero@fortlauderdale.gov
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDemoLogin('MSanchez@fortlauderdale.gov')}
+                disabled={isLoading}
+                className="text-xs justify-start"
+              >
+                <span className="font-semibold text-blue-600 mr-2">Editor:</span>
+                MSanchez@fortlauderdale.gov
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDemoLogin('KrThompson@fortlauderdale.gov')}
+                disabled={isLoading}
+                className="text-xs justify-start"
+              >
+                <span className="font-semibold text-purple-600 mr-2">Viewer:</span>
+                KrThompson@fortlauderdale.gov
+              </Button>
+            </div>
+          </div>
+          
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground">
+              All demo accounts use password: <code className="bg-muted px-1 rounded">demo123</code>
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              This application is for authorized users only.
+            </p>
+          </div>
         </CardFooter>
       </Card>
     </div>
   );
 }
-

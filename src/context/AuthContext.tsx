@@ -1,70 +1,115 @@
-
 'use client';
 
-import type { User as FirebaseUser } from 'firebase/auth';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { useRouter, usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { app } from '@/lib/firebaseInit'; // Firebase app instance
+import { useRouter, usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-// Initialize auth only if app is available
-const firebaseAuth = app ? getAuth(app) : undefined;
+// Import the new data service based on sampleData.ts
+import { dataService } from '@/lib/dataService';
+
+interface User {
+  email: string;
+  displayName?: string;
+  id: string;
+}
 
 interface AuthContextType {
-  user: FirebaseUser | null;
+  user: User | null;
   isAdmin: boolean;
   isLoadingAuth: boolean;
-  firebaseConfigError: string | null;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [firebaseConfigError, setFirebaseConfigError] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
-  useEffect(() => {
-    if (!firebaseAuth) {
-      console.warn("AuthContext: Firebase Auth is not configured. Authentication will be unavailable.");
-      setFirebaseConfigError("Firebase Auth is not configured. Admin checks and user sessions may not work correctly.");
-      setIsLoadingAuth(false);
-      return;
-    }
+  // Check if user is admin based on sampleData
+  const isAdmin = user ? dataService.isAdmin(user.email) : false;
 
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (currentUser) => {
+  // Simple demo authentication
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      // Get valid users from sampleData
+      const validUsers = dataService.getUsers();
+      const foundUser = validUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+      
+      if (foundUser && password === 'demo123') { // Simple demo password
+        const newUser: User = {
+          email: foundUser.email,
+          displayName: foundUser.email.split('@')[0], // Use email prefix as display name
+          id: foundUser.id,
+        };
+        
+        setUser(newUser);
+        localStorage.setItem('tamppm_currentUser', JSON.stringify(newUser));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
+    }
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('tamppm_currentUser');
+    router.push('/');
+  };
+
+  // Initialize auth state from localStorage
+  useEffect(() => {
+    const initializeAuth = () => {
       setIsLoadingAuth(true);
-      if (currentUser) {
-        setUser(currentUser);
-        // Prototype admin check: In production, use custom claims.
-        const checkAdmin = currentUser.email === 'mbaquero@fortlauderdale.gov';
-        setIsAdmin(checkAdmin);
-        sessionStorage.setItem('isAuthenticated', 'true'); // Keep for simple checks if needed elsewhere, but context is primary
-        if (pathname === '/') { // If on login page and user is found, redirect
-          router.replace('/dashboard');
+      
+      try {
+        const savedUser = localStorage.getItem('tamppm_currentUser');
+        if (savedUser) {
+          const parsedUser: User = JSON.parse(savedUser);
+          
+          // Verify the user still exists in sampleData
+          const validUsers = dataService.getUsers();
+          const userExists = validUsers.some(u => u.email === parsedUser.email);
+          
+          if (userExists) {
+            setUser(parsedUser);
+            if (pathname === '/') {
+              router.replace('/dashboard');
+            }
+          } else {
+            // User no longer exists in sampleData, clear localStorage
+            localStorage.removeItem('tamppm_currentUser');
+          }
+        } else if (pathname !== '/') {
+          // No saved user and not on login page, redirect to login
+          router.replace('/');
         }
-      } else {
-        setUser(null);
-        setIsAdmin(false);
-        sessionStorage.removeItem('isAuthenticated');
-        // If not on the login page and user becomes null (e.g. logged out), redirect to login
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        localStorage.removeItem('tamppm_currentUser');
         if (pathname !== '/') {
           router.replace('/');
         }
+      } finally {
+        setIsLoadingAuth(false);
       }
-      setIsLoadingAuth(false);
-    });
+    };
 
-    return () => unsubscribe();
+    // Small delay to prevent flash
+    const timeoutId = setTimeout(initializeAuth, 100);
+    return () => clearTimeout(timeoutId);
   }, [router, pathname]);
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, isLoadingAuth, firebaseConfigError }}>
+    <AuthContext.Provider value={{ user, isAdmin, isLoadingAuth, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -78,17 +123,17 @@ export function useAuth() {
   return context;
 }
 
-// Optional: A wrapper component for protected routes
+// Protected route wrapper component
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { user, isLoadingAuth, firebaseConfigError } = useAuth();
+  const { user, isLoadingAuth } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!isLoadingAuth && !user && !firebaseConfigError && pathname !== '/') {
+    if (!isLoadingAuth && !user && pathname !== '/') {
       router.replace('/');
     }
-  }, [user, isLoadingAuth, router, firebaseConfigError, pathname]);
+  }, [user, isLoadingAuth, router, pathname]);
 
   if (isLoadingAuth) {
     return (
@@ -99,26 +144,12 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     );
   }
 
-  if (firebaseConfigError && pathname !== '/') {
-     // This case should ideally be handled by a global error boundary or specific error page
-     // For now, if config error and not on login page, show simple error or redirect
-    return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
-            <p className="text-lg font-medium text-destructive">Firebase Configuration Error.</p>
-            <p className="text-sm text-muted-foreground">Please check the console.</p>
-            <Button onClick={() => router.push('/')} variant="outline" className="mt-4">Go to Login</Button>
-        </div>
-    );
-  }
-
-
   if (!user && pathname !== '/') {
-    // Should have been redirected by useEffect, but as a fallback
     return (
-         <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
-            <Loader2 className="h-12 w-12 animate-spin text-accent mb-4" />
-            <p className="text-lg font-medium">Redirecting to login...</p>
-        </div>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
+        <Loader2 className="h-12 w-12 animate-spin text-accent mb-4" />
+        <p className="text-lg font-medium">Redirecting to login...</p>
+      </div>
     );
   }
   

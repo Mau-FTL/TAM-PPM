@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
@@ -11,7 +10,9 @@ import type { Property, Project } from '@/types';
 import { Loader2, Search, MapPin, AlertTriangle } from 'lucide-react';
 import { useAuth, ProtectedRoute } from '@/context/AuthContext';
 import { useToast } from "@/hooks/use-toast";
-import { databaseService } from '@/lib/databaseService';
+
+// Import the new data service based on sampleData.ts
+import { dataService } from '@/lib/dataService';
 
 function PropertiesContent() {
   const router = useRouter();
@@ -25,32 +26,39 @@ function PropertiesContent() {
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchPropertiesFromRTDB = async () => {
-      if (!user) { // Ensure user is available for authenticated requests if rules require
-        setIsDataInitialized(true); // Consider data "initialized" if no user, to stop loading
+    const fetchPropertiesFromSampleData = () => {
+      if (!user) { 
+        setIsDataInitialized(true);
         return;
       }
 
-      setIsDataInitialized(false); // Reset before fetching
+      setIsDataInitialized(false);
       setFetchError(null);
 
       try {
-        console.log("Attempting to fetch properties from RTDB...");
-        const fetchedProperties = await databaseService.getProperties();
+        console.log("Loading properties from sampleData...");
+        const fetchedProperties = dataService.getProperties();
         setProperties(fetchedProperties);
-        console.log("Fetched properties from RTDB:", fetchedProperties.length);
+        console.log("Loaded properties from sampleData:", fetchedProperties.length);
+        
         if (fetchedProperties.length === 0) {
           toast({
             title: "No Properties Found",
-            description: "No properties were found in the Realtime Database.",
+            description: "No properties were found in the sample data.",
+            variant: "default"
+          });
+        } else {
+          toast({
+            title: "Properties Loaded",
+            description: `Successfully loaded ${fetchedProperties.length} properties from sample data.`,
             variant: "default"
           });
         }
       } catch (error: any) {
-        console.error("Error fetching properties from RTDB:", error);
-        setFetchError(error.message || "Failed to fetch properties from Realtime Database. Please check permissions or network.");
+        console.error("Error loading properties from sampleData:", error);
+        setFetchError(error.message || "Failed to load properties from sample data.");
         toast({
-          title: "Error Fetching Properties",
+          title: "Error Loading Properties",
           description: error.message || "Could not load properties.",
           variant: "destructive",
         });
@@ -59,10 +67,10 @@ function PropertiesContent() {
       }
     };
 
-    if (!isLoadingAuth) { // Only fetch when auth state is resolved
-      fetchPropertiesFromRTDB();
+    if (!isLoadingAuth) { 
+      fetchPropertiesFromSampleData();
     }
-  }, [isLoadingAuth, user, toast]); // Added user and toast to dependency array
+  }, [isLoadingAuth, user, toast]);
 
   const handleProjectDataChange = (propertyId: string, updatedProjects: Project[]) => {
     setProjects(prevProjects => {
@@ -136,7 +144,7 @@ function PropertiesContent() {
             ))}
           </div>
         ) : (
-          !fetchError && ( // Only show "No properties" if there wasn't a fetch error
+          !fetchError && (
             <div className="flex flex-col items-center justify-center text-center py-12 bg-card rounded-lg shadow-sm">
               <MapPin className="h-16 w-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold text-foreground mb-2">
@@ -145,7 +153,7 @@ function PropertiesContent() {
               <p className="text-muted-foreground">
                 {searchTerm 
                   ? "No locations match your search criteria." 
-                  : "No properties were found in the database, or you may not have permission to view them."}
+                  : "No properties were found in the sample data."}
               </p>
             </div>
           )

@@ -1,29 +1,24 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { UserRole, AppUser, Property, PropertyFormData, PropertyFeatureEnum, SqlProperty } from "@/types"; // Added SqlProperty
+import { UserRole, AppUser, Property, PropertyFormData } from "@/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input"; 
 import { Switch } from "@/components/ui/switch"; 
-import { Label } from "@/components/ui/label"; // Added Label import
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"; 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"; 
 import { useRouter } from "next/navigation";
-import { getAuth, getIdToken, type User } from 'firebase/auth';
-import { app } from '@/lib/firebaseInit';
 import { ArrowLeft, Loader2, PlusCircle, Trash2 } from "lucide-react"; 
 import AppHeader from "@/components/dashboard/AppHeader";
 import { useToast } from "@/hooks/use-toast";
-import { properties as initialPropertiesData } from '@/data/properties'; 
 import EditPropertyModal from '@/components/dashboard/EditPropertyModal'; 
 
-const firebaseAuth = app ? getAuth(app) : undefined;
-const GRAPHQL_ENDPOINT = "https://studio--tam-ppm.us-central1.hosted.app/graphql";
+// Import the new data service based on sampleData.ts
+import { dataService } from '@/lib/dataService';
 
-// Helper to determine AI hint from URL (copied from propertyId page)
+// Helper to determine AI hint from URL
 const getAiHintFromUrl = (url: string | undefined, currentHint: string | undefined): string => {
   if (!url || url.startsWith('https://placehold.co')) { return currentHint || 'property detail image'; }
   try {
@@ -37,12 +32,11 @@ const getAiHintFromUrl = (url: string | undefined, currentHint: string | undefin
   } catch { return 'property image'; }
 };
 
-// Helper to parse comma-separated string (copied from propertyId page)
+// Helper to parse comma-separated string
 const parseCommaSeparatedString = (input?: string): string[] => {
   if (!input || typeof input !== 'string') return [];
   return input.split(',').map(s => s.trim()).filter(s => s.length > 0);
 };
-
 
 const SettingsPage = () => {
   const { user, isAdmin, isLoadingAuth } = useAuth();
@@ -51,19 +45,18 @@ const SettingsPage = () => {
   
   const [users, setUsers] = useState<AppUser[]>([]);
   const [initialUsers, setInitialUsers] = useState<AppUser[]>([]);
-  const [fetchError, setFetchError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDataInitialized, setIsDataInitialized] = useState(false);
 
   // Property Management State
-  const [managedProperties, setManagedProperties] = useState<Property[]>(initialPropertiesData.slice(0, 5).map(p => ({...p, status: 'active' as 'active' | 'disabled'}))); 
+  const [managedProperties, setManagedProperties] = useState<(Property & { status: 'active' | 'disabled' })[]>([]);
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [isDeletePropertyAlertOpen, setIsDeletePropertyAlertOpen] = useState(false);
 
   // State for Add/Edit Property Modal
   const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false);
   const [currentPropertyForModal, setCurrentPropertyForModal] = useState<Property | null>(null); 
-
 
   useEffect(() => {
     if (!isLoadingAuth && !isAdmin) {
@@ -72,47 +65,53 @@ const SettingsPage = () => {
   }, [isLoadingAuth, isAdmin, router]);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      if (!firebaseAuth || !user) {
-        setFetchError("User not authenticated or Firebase Auth not initialized.");
-        return;
-      }
-      setFetchError(null);
-
+    const fetchDataFromSampleData = () => {
       try {
-        const idToken = await getIdToken(user as User);
-        const response = await fetch(`${firebaseAuth.app.options.databaseURL}/users.json?auth=${idToken}`);
+        console.log("Loading users and properties from sampleData...");
         
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response.' }));
-          console.error("Firebase error response:", errorData);
-          throw new Error(`HTTP error! status: ${response.status}. Message: ${errorData.error || 'Unknown error'}`);
-        }
-        const data = await response.json();
-        if (data) {
-          const fetchedUsers: AppUser[] = Object.keys(data).map(key => ({
-            id: key,
-            email: data[key].email,
-            name: data[key].email.split('@')[0], 
-            role: data[key].role as UserRole,
-          }));
-          setUsers(fetchedUsers);
-          setInitialUsers(JSON.parse(JSON.stringify(fetchedUsers)));
-        } else {
-          setUsers([]);
-          setInitialUsers([]);
-        }
+        // Load users from sampleData
+        const fetchedUsers: AppUser[] = dataService.getUsers().map(user => ({
+          id: user.id,
+          email: user.email,
+          name: user.email.split('@')[0], // Use email prefix as name
+          role: user.role as UserRole,
+        }));
+        
+        // Load properties from sampleData
+        const fetchedProperties = dataService.getProperties().map(p => ({
+          ...p,
+          status: 'active' as 'active' | 'disabled'
+        }));
+
+        setUsers(fetchedUsers);
+        setInitialUsers(JSON.parse(JSON.stringify(fetchedUsers)));
+        setManagedProperties(fetchedProperties);
+        
+        console.log("Loaded from sampleData:", {
+          users: fetchedUsers.length,
+          properties: fetchedProperties.length
+        });
+        
+        toast({
+          title: "Settings Loaded",
+          description: `Loaded ${fetchedUsers.length} users and ${fetchedProperties.length} properties from sample data.`,
+          variant: "default"
+        });
       } catch (error: any) {
-        console.error("Failed to fetch users:", error);
-        setFetchError(error.message || "An unexpected error occurred while fetching users.");
-        toast({ title: "Fetch Error", description: error.message || "Could not fetch users.", variant: "destructive" });
+        console.error("Failed to load settings data:", error);
+        toast({ 
+          title: "Load Error", 
+          description: error.message || "Could not load settings data.", 
+          variant: "destructive" 
+        });
       }
+      setIsDataInitialized(true);
     };
 
-    if (isAdmin && user) {
-      fetchUsers();
+    if (isAdmin && user && !isLoadingAuth) {
+      fetchDataFromSampleData();
     }
-  }, [isAdmin, user, toast]);
+  }, [isAdmin, user, isLoadingAuth, toast]);
 
   useEffect(() => {
     if (initialUsers.length === 0 && users.length === 0) {
@@ -150,45 +149,32 @@ const SettingsPage = () => {
   };
 
   const handleSaveChanges = async () => {
-    if (!firebaseAuth || !user) {
-      toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
-      return;
-    }
     if (!hasChanges) {
       toast({ title: "No Changes", description: "There are no changes to save.", variant: "default" });
       return;
     }
+    
     setIsSaving(true);
+    
+    // Simulate saving to backend
     try {
-      const idToken = await getIdToken(user as User);
-      const updates: { [key: string]: any } = {};
-      users.forEach(appUser => {
-        const initialRole = initialUsers.find(u => u.id === appUser.id)?.role;
-        if (initialRole !== appUser.role) {
-          updates[`/users/${appUser.id}/role`] = appUser.role;
-        }
-      });
-      if (Object.keys(updates).length === 0) {
-         toast({ title: "No Effective Changes", description: "No roles were modified.", variant: "default" });
-         setIsSaving(false);
-         setInitialUsers(JSON.parse(JSON.stringify(users)));
-         return;
-      }
-      const response = await fetch(`${firebaseAuth.app.options.databaseURL}/.json?auth=${idToken}`, {
-        method: 'PATCH',
-        body: JSON.stringify(updates),
-        headers: { 'Content-Type': 'application/json' }
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response.' }));
-        throw new Error(`HTTP error! status: ${response.status}. Message: ${errorData.error || 'Unknown error'}`);
-      }
+      // In a real app, this would make API calls to save user role changes
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+      
       setInitialUsers(JSON.parse(JSON.stringify(users))); // Update initial state on successful save
       setHasChanges(false); // Reset hasChanges flag
-      toast({ title: "Success", description: "User roles saved successfully to Firebase." });
+      
+      toast({ 
+        title: "Success", 
+        description: "User roles saved successfully (simulated save to sample data)." 
+      });
     } catch (error: any) {
       console.error("Failed to save user settings:", error);
-      toast({ title: "Save Failed", description: error.message || "Could not save user settings.", variant: "destructive" });
+      toast({ 
+        title: "Save Failed", 
+        description: error.message || "Could not save user settings.", 
+        variant: "destructive" 
+      });
     } finally {
       setIsSaving(false);
     }
@@ -201,7 +187,11 @@ const SettingsPage = () => {
         p.id === propertyId ? { ...p, status: p.status === 'active' ? 'disabled' : 'active' } : p
       )
     );
-    toast({ title: "Status Updated", description: "Property status toggled (client-side).", variant: "default" });
+    toast({ 
+      title: "Status Updated", 
+      description: "Property status toggled (local state only).", 
+      variant: "default" 
+    });
   };
 
   const handleDeletePropertyClick = (property: Property) => {
@@ -212,8 +202,11 @@ const SettingsPage = () => {
   const confirmDeleteProperty = () => {
     if (propertyToDelete) {
       setManagedProperties(prev => prev.filter(p => p.id !== propertyToDelete!.id));
-      // TODO: Add GraphQL mutation to delete property from backend
-      toast({ title: "Property Deleted", description: `"${propertyToDelete.name}" deleted (client-side).`, variant: "destructive" });
+      toast({ 
+        title: "Property Deleted", 
+        description: `"${propertyToDelete.name}" deleted from local state.`, 
+        variant: "destructive" 
+      });
     }
     setIsDeletePropertyAlertOpen(false);
     setPropertyToDelete(null);
@@ -230,74 +223,16 @@ const SettingsPage = () => {
   };
 
   const handleSaveProperty = async (formData: PropertyFormData) => {
-    if (!firebaseAuth || !user) {
-      toast({ title: "Authentication Error", description: "You must be logged in to add a property.", variant: "destructive" });
-      return;
-    }
+    setIsSaving(true);
     
-    setIsSaving(true); // Indicate loading state
-    let idToken;
     try {
-      idToken = await getIdToken(user as User);
-    } catch (error) {
-      console.error("Error getting ID token:", error);
-      toast({ title: "Authentication Error", description: "Could not verify user session. Please try again.", variant: "destructive" });
-      setIsSaving(false);
-      return;
-    }
-
-    const mutation = `
-      mutation CreateNewProperty($name: String!, $address: String!) {
-        property_insert(data: {name: $name, address: $address}) {
-          id # Or a more suitable unique identifier from your backend
-          name
-          address
-          # Add other fields you expect back from the mutation
-        }
-      }
-    `;
-
-    const variables = {
-      name: formData.name,
-      address: formData.address,
-      // Include other relevant fields from formData if your mutation accepts them
-    };
-
-    try {
-      const response = await fetch(GRAPHQL_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          query: mutation,
-          variables: variables,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || result.errors) {
-        console.error("GraphQL Error:", result.errors);
-        const errorMessage = result.errors?.[0]?.message || `HTTP error! status: ${response.status}`;
-        throw new Error(errorMessage);
-      }
+      // Simulate saving to backend
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const createdPropertyData = result.data?.property_insert;
-
-      if (!createdPropertyData || !createdPropertyData.id) {
-          console.error("GraphQL response missing property data or ID:", result.data);
-          throw new Error("Failed to create property: No ID returned from server.");
-      }
-
-      // TODO: The server should ideally return the full SqlProperty object.
-      // For now, we construct a client-side version for the UI.
-      // This will need to be aligned with the actual SqlProperty type if you display more fields.
-      const newPropertyForClientState: Property = {
-        id: createdPropertyData.id, // Use ID from server
-        name: createdPropertyData.name,
-        address: createdPropertyData.address,
+      const newProperty: Property & { status: 'active' | 'disabled' } = {
+        id: `prop-${Date.now()}`, // Generate new ID
+        name: formData.name,
+        address: formData.address,
         description: formData.description,
         features: formData.features || [],
         imageUrl: formData.imageUrl?.trim() || 'https://placehold.co/600x400.png',
@@ -325,7 +260,7 @@ const SettingsPage = () => {
         elevatorsCount: formData.elevatorsCount || 0,
         stairsCount: formData.stairsCount || 0,
         carStopsCount: formData.carStopsCount || 0,
-        evChargersCount: 0, // Not in form, default to 0
+        evChargersCount: 0, // Default
         bikeFacilities: parseCommaSeparatedString(formData.bikeFacilitiesInput),
         surfaceCondition: formData.surfaceCondition || 'N/A',
         surfaceType: formData.surfaceType || 'N/A',
@@ -334,28 +269,42 @@ const SettingsPage = () => {
         exitPoints: formData.exitPoints || 0,
         paymentSystems: parseCommaSeparatedString(formData.paymentSystemsInput),
         totalMeters: formData.totalMeters || 0,
-        // @ts-ignore status is added for client-side management here
-        status: 'active', 
+        status: 'active',
       };
 
-      setManagedProperties(prev => [newPropertyForClientState, ...prev]);
-      toast({ title: "Property Added", description: `"${newPropertyForClientState.name}" added successfully via GraphQL.` });
+      setManagedProperties(prev => [newProperty, ...prev]);
+      toast({ 
+        title: "Property Added", 
+        description: `"${newProperty.name}" added successfully (local state only).` 
+      });
       handleClosePropertyModal();
 
     } catch (error: any) {
-      console.error("Failed to save property via GraphQL:", error);
-      toast({ title: "Save Failed", description: error.message || "Could not save property to the server.", variant: "destructive" });
+      console.error("Failed to save property:", error);
+      toast({ 
+        title: "Save Failed", 
+        description: error.message || "Could not save property.", 
+        variant: "destructive" 
+      });
     } finally {
       setIsSaving(false);
     }
   };
-
 
   if (isLoadingAuth || (!isAdmin && !isLoadingAuth)) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
         <Loader2 className="h-12 w-12 animate-spin text-accent" />
         <p className="text-lg font-medium mt-4">Loading settings or unauthorized...</p>
+      </div>
+    );
+  }
+
+  if (!isDataInitialized) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
+        <Loader2 className="h-12 w-12 animate-spin text-accent" />
+        <p className="text-lg font-medium mt-4">Loading settings data...</p>
       </div>
     );
   }
@@ -374,12 +323,6 @@ const SettingsPage = () => {
         {/* User Settings Section */}
         <section className="mb-12">
           <h2 className="text-2xl font-semibold font-headline text-foreground mb-4">User Role Management</h2>
-          {fetchError && (
-            <div className="mb-4 p-4 bg-destructive/10 text-destructive border border-destructive rounded-md">
-              <p className="font-semibold">Error Fetching Users:</p>
-              <p>{fetchError}</p>
-            </div>
-          )}
           <div className="overflow-x-auto bg-card p-6 rounded-lg shadow-md">
             <table className="min-w-full text-card-foreground">
               <thead>
@@ -413,8 +356,8 @@ const SettingsPage = () => {
               </tbody>
             </table>
           </div>
-          {users.length === 0 && !fetchError && !isLoadingAuth && (
-            <p className="text-muted-foreground mt-4 text-center">No users found or yet to be loaded.</p>
+          {users.length === 0 && (
+            <p className="text-muted-foreground mt-4 text-center">No users found in sample data.</p>
           )}
           <div className="mt-6 text-right">
             <Button onClick={handleSaveChanges} variant="success" disabled={!hasChanges || isSaving}>
@@ -438,6 +381,8 @@ const SettingsPage = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Property Name</TableHead>
+                    <TableHead>Address</TableHead>
+                    <TableHead>Total Parking</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -446,9 +391,10 @@ const SettingsPage = () => {
                   {managedProperties.map((prop) => (
                     <TableRow key={prop.id} className="hover:bg-muted/50">
                       <TableCell className="font-medium text-foreground">{prop.name}</TableCell>
+                      <TableCell className="text-muted-foreground">{prop.address}</TableCell>
+                      <TableCell className="text-muted-foreground">{prop.totalParking} spaces</TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                           {/* @ts-ignore status is valid here for client side */}
                           <Switch
                             checked={prop.status === 'active'}
                             onCheckedChange={() => handleTogglePropertyStatus(prop.id)}
@@ -456,7 +402,6 @@ const SettingsPage = () => {
                             aria-label={`Toggle status for ${prop.name}`}
                             disabled={isSaving}
                           />
-                           {/* @ts-ignore status is valid here for client side */}
                           <Label htmlFor={`status-${prop.id}`} className="text-sm">
                             {prop.status === 'active' ? 'Active' : 'Disabled'}
                           </Label>
@@ -499,8 +444,8 @@ const SettingsPage = () => {
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. This will remove the property "{propertyToDelete?.name}" from the list (client-side).
-                Real deletion from the server requires a separate GraphQL call.
+                This action will remove the property "{propertyToDelete?.name}" from the local state.
+                In a real application, this would also remove it from the database.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -517,4 +462,3 @@ const SettingsPage = () => {
 };
 
 export default SettingsPage;
-
